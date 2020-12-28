@@ -20,6 +20,14 @@ MYSQL_RES* res;
 SOCKET Connections[5];//изменить кол-во
 int Counter = 0;
 
+enum Request_Codes
+{
+    AUTHORIZATION = 11111,
+    CHECK_BALANCE = 22222,
+    ITEM_DETAILED_INFO = 33333,
+    SELL_MENU = 44444
+};
+
 void connect_sql()
 {
     connection=mysql_init(0);
@@ -89,7 +97,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 
         if(connection)
         {
-            if(request_code==77777)//исп перечисления!!
+            if(request_code==AUTHORIZATION)//исп перечисления!!
             {
                 recv(Connections[index], (char*)&msg_size, sizeof(int), NULL);
                 char* login = new char[msg_size+1];
@@ -131,7 +139,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                 }
                 delete[] login;
             }
-            else if(request_code==22222)
+            else if(request_code==CHECK_BALANCE)
             {
                 cout<<"Got show table request"<<endl;
                 stringstream ss;
@@ -157,7 +165,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                 }
 
             }
-            else if(request_code==11111)
+            else if(request_code==ITEM_DETAILED_INFO)
             {
                 cout<<"Got show item detailed info"<<endl;
 
@@ -207,7 +215,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                 }
 
             }
-            else if(request_code==33333)
+            else if(request_code==SELL_MENU)
             {
                 cout<<"Sell menu"<<endl;
                 int order_is_done=0;
