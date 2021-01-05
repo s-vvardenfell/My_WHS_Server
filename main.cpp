@@ -137,6 +137,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                     cout<<"No such user"<<endl;
 
                 }
+
                 delete[] login;
             }
             else if(request_code==CHECK_BALANCE)
@@ -214,6 +215,8 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                     send(Connections[index], temp_str.c_str(), msg_size, NULL);
                 }
 
+                delete[] item_code;
+
             }
             else if(request_code==SELL_MENU)
             {
@@ -233,6 +236,8 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                     ss<<"SELECT name, amount, price FROM goods WHERE id="<<item_code;
                     string temp_str=ss.str();
                     const char* q = temp_str.c_str();
+
+                    delete[] item_code;
 
                     if(connection)//else отработать
                     {
@@ -260,6 +265,8 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 
                         cout<<"Got continue code: "<<order_continue<<endl;
                         order_is_done=atoi(order_continue);
+
+                        delete[] order_continue;
                     }
 
                     if(order_is_done==0)
@@ -278,6 +285,8 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                     cout<<"complete_order: "<<complete_order<<endl;
 
                     string temp_str = complete_order;
+
+                    delete[] complete_order;
 
                     unsigned int cnt = (count(temp_str.begin(),temp_str.end(), '*'));
                     cout<<"Count of elements (*): "<<cnt<<endl;
@@ -465,6 +474,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 
                                 //меняю temp_name и пустое поле адрес на данные клиента
                                 string name_and_address = confirm_or_denied;//сохраняю имя*адрес в string для обработки
+                                delete[] confirm_or_denied;
                                 stringstream ss7;
                                 ss7<<"UPDATE orders SET customer_name=\'"<<(name_and_address.substr(0, name_and_address.find('*')))<<"\'";
                                 name_and_address.erase(0, name_and_address.find('*')+1);
@@ -543,9 +553,10 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                             stringstream ss9;
 
                             ss9<<"UPDATE goods SET amount = (goods.amount-(SELECT orders_detailed.amount FROM orders_detailed WHERE order_id="<<id;
-                            ss9<<") ) WHERE id = (SELECT orders_detailed.good_id FROM orders_detailed WHERE order_id ="<<id;
+                            ss9<<") ) WHERE id IN (SELECT orders_detailed.good_id FROM orders_detailed WHERE order_id ="<<id;
                             ss9<<");";
                             query = ss9.str();
+                            cout<<query<<endl;
 
                             q = query.c_str();//вот тут можно использовать один и тот же q с самого начала как и query
 
@@ -557,7 +568,12 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                                 cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
                             }
                             else
+                            {
+                                cout<<"Shoot"<<endl;
                                 error_message();
+
+                            }
+
                     }
             }
             else
