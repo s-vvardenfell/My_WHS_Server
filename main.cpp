@@ -97,48 +97,64 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 
         if(connection)
         {
-            if(request_code==AUTHORIZATION)//исп перечисления!!
+            if(request_code==AUTHORIZATION)
             {
+                //получаем и обрабатываем логин и пароль от клиента
                 recv(Connections[index], (char*)&msg_size, sizeof(int), NULL);
-                char* login = new char[msg_size+1];
-                login[msg_size] = '\0';
-                recv(Connections[index], login, msg_size, NULL);
+                char* login_and_password_data = new char[msg_size+1];
+                login_and_password_data[msg_size] = '\0';
+                recv(Connections[index], login_and_password_data, msg_size, NULL);
 
-                cout<<"Login from client: "<<login<<endl;
+                cout<<"Login and password raw data from client: "<<login_and_password_data<<endl;
+                string login, password, login_and_password;
+                login_and_password=login_and_password_data;
+
+                login = login_and_password.substr(0, login_and_password.find('*'));
+                login_and_password.erase(0, login_and_password.find('*')+1);
+                password=login_and_password;
+                cout<<"login: "<<login<<" password: "<<password<<endl;
+
                 stringstream ss;
-                ss<<"SELECT * FROM user_list WHERE name="<<login;
+                ss<<"SELECT password, role_id FROM user_list WHERE name="<<login;
                 string str = ss.str();
                 int qstate = mysql_query(connection, str.c_str());
 
                 if(!qstate)
                     res = mysql_store_result(connection);
-                //здесь продумать ветвление по-логичнее сделать
+
+                //если запись с таким логином есть, сравниваем пароль из бд и от клиента
                 if(row = mysql_fetch_row(res))
                 {
-                    cout<<"User found, ";
-                    cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<row[3]<<endl;
+                    cout<<"User found, password and role: ";
+                    cout<<row[0]<<" "<<row[1]<<endl;
+                    if(password==row[0])//если пароль верный, отпаравляем роль для активации меню
+                    {
+                        msg_size=sizeof(row[0]);
+                        send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                        send(Connections[index], row[1], msg_size, NULL);
+                    }
+                    else//если пароль неверный, отправляем 0
+                    {
+                        cout<<"password doesn't match"<<endl;
+                        const char* login = "0";
+                        msg_size=sizeof(login);
+                        send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                        send(Connections[index], login, msg_size, NULL);
+                    }
 
-                    msg_size=sizeof(row[1]);
-                    send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
-                    send(Connections[index], row[1], msg_size, NULL);
-
-                    msg_size=sizeof(row[3]);
-                    send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
-                    send(Connections[index], row[3], msg_size, NULL);
                 }
-                else
+                else//если записи с таким логином нет, отправляем 0
                 {
                     cout<<"qstate "<<qstate<<endl;
-                    const char* login = "0";
-                    msg_size=sizeof(login);
-
-                    send(Connections[index], (char*)&msg_size, sizeof(int), NULL); //отправляем размер сообщ
-                    send(Connections[index], login, msg_size, NULL); //отпр само сообщ
+                    const char* role = "0";
+                    msg_size=sizeof(role);
+                    send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                    send(Connections[index], role, msg_size, NULL);
                     cout<<"No such user"<<endl;
 
                 }
 
-                delete[] login;
+                delete[] login_and_password_data;
             }
             else if(request_code==CHECK_BALANCE)
             {
