@@ -25,7 +25,8 @@ enum Request_Codes
     AUTHORIZATION = 11111,
     CHECK_BALANCE = 22222,
     ITEM_DETAILED_INFO = 33333,
-    SELL_MENU = 44444
+    SELL_MENU = 44444,
+    REGISTRATION = 55555
 };
 
 void connect_sql()
@@ -92,7 +93,6 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
     recv(Connections[index], msg, msg_size, NULL);
     request_code=atoi(msg);
 
-    cout<<"Message from client: "<<msg<<endl;
     cout<<"Request code from client: "<<request_code<<endl;
 
         if(connection)
@@ -232,6 +232,44 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                 }
 
                 delete[] item_code;
+
+            }
+            else if(request_code==REGISTRATION)
+            {
+                cout<<"Registration menu"<<endl;
+
+                recv(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                char* login_and_password_raw_data = new char[msg_size+1];
+                login_and_password_raw_data[msg_size] = '\0';
+                recv(Connections[index], login_and_password_raw_data, msg_size, NULL);
+
+                cout<<login_and_password_raw_data<<endl;
+
+                string login, password,
+                        login_and_password = login_and_password_raw_data;
+
+                login = login_and_password.substr(0, login_and_password.find('*'));
+                login_and_password.erase(0, login_and_password.find('*')+1);
+                password=login_and_password;
+
+                cout<<login<<" "<<password<<endl;
+
+                stringstream ss;
+                ss<<"INSERT INTO user_list (name, password, role_id) VALUES (\'";
+                ss<<login<<"\',\'"<<password<<"\',"<<"2);"; //добавить сюда подзапрос из таблицы ролей
+                string query = ss.str();
+                cout<<query<<endl;
+                const char* q = query.c_str();
+
+                int qstate = mysql_query(connection,q);
+
+                if(!qstate)
+                {
+                    cout<<"New user created"<<endl;
+                    cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
+                }
+                else
+                    error_message();
 
             }
             else if(request_code==SELL_MENU)
