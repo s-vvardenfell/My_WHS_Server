@@ -26,7 +26,8 @@ enum Request_Codes
     CHECK_BALANCE = 22222,
     ITEM_DETAILED_INFO = 33333,
     SELL_MENU = 44444,
-    REGISTRATION = 55555
+    REGISTRATION = 55555,
+    CHECK_ORDER_STATUS = 66666
 };
 
 void connect_sql()
@@ -179,6 +180,41 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                     cout<<str<<endl;
                     send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
                     send(Connections[index], str.c_str(), msg_size, NULL);
+                }
+
+            }
+            else if(request_code==CHECK_ORDER_STATUS)
+            {
+                cout<<"Got check order status code"<<endl;
+
+                int order_code_from_client;
+                recv(Connections[index], (char*)&order_code_from_client, sizeof(int), NULL);
+
+                cout<<"Got order number from client: "<<order_code_from_client<<endl;
+
+                stringstream ss;
+                ss<<"SELECT * FROM orders_detailed INNER JOIN orders ON orders_detailed.order_id=orders.order_id WHERE orders_detailed.order_id="<<order_code_from_client;
+//                ss<<"SELECT * FROM orders_detailed WHERE orders_detailed.order_id="<<order_code_from_client;
+
+                string temp_str=ss.str();
+                const char* q = temp_str.c_str();
+                ss.str(string(""));
+
+                if(connection)
+                {
+                    int qstate = mysql_query(connection, q);
+
+                    if(!qstate)
+                        res = mysql_store_result(connection);
+
+                    while(row = mysql_fetch_row(res))
+                    {
+                        cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]/*<<" "<<row[8]<<" "<<row[9]<<" "<<row[10]*/<<endl;
+                        //ss<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]<<" "<<row[8]<<" "<<row[9]<<" "<<row[10]<<endl;
+                    }
+
+//                    send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+//                    send(Connections[index], temp_str.c_str(), msg_size, NULL);
                 }
 
             }
@@ -343,7 +379,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                     delete[] complete_order;
 
                     unsigned int cnt = (count(temp_str.begin(),temp_str.end(), '*'));
-                    cout<<"Count of elements (*): "<<cnt<<endl;
+                    cout<<"Count of elements (*) in order: "<<cnt<<endl;
 
                     //сохраняем данные из строки в multimap: first=код/id, second=количество
                     multimap<int, double> order_elements;
@@ -397,10 +433,15 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                             if(!qstate)
                             {
                                 cout<<"Record inserted"<<endl;
+                                cout<<"Note 1"<<endl;
                                 cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
                             }
                             else
+                            {
+                                cout<<"Note 2"<<endl;
                                 error_message();
+                            }
+///ТУТ ПЕРЕСТАЛО РАБОТАТЬ
 
                         //в цикле проходим по multimap и заносим в таблицу значения для данного временного id
                         for(it=order_elements.begin(); it!=order_elements.end();++it)
@@ -424,9 +465,14 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                                 {
                                     cout<<"Record inserted"<<endl;
                                     cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
+                                    cout<<"Note 3"<<endl;
                                 }
                                 else
+                                {
+                                    cout<<"Note 4"<<endl;
                                     error_message();
+                                }
+
                         }
 
                             //считаем стоимость заказа по orders_detailed и заносим в orders
@@ -466,11 +512,16 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                                 if(!qstate)
                                 {
                                     cout<<"Records inserted"<<endl;
+                                    cout<<"Note 5"<<endl;
                                     cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
                                 }
                                 else
+                                {
+                                    cout<<"Note 6"<<endl;
                                     error_message();
+                                }
 
+///ТУТ УЖЕ ВИСНЕТ
                             //отправляем сумму заказа, у клиента спросим подтверждение
                             //и ввод личн данных
                             msg_size=total_cost_str.size();
