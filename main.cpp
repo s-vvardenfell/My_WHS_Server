@@ -210,11 +210,13 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                     while(row = mysql_fetch_row(res))
                     {
                         cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]/*<<" "<<row[8]<<" "<<row[9]<<" "<<row[10]*/<<endl;
-                        //ss<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]<<" "<<row[8]<<" "<<row[9]<<" "<<row[10]<<endl;
+                        ss<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]<<" "<<row[8]<<" "<<row[9]<<" "<<row[10]<<endl;
                     }
 
-//                    send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
-//                    send(Connections[index], temp_str.c_str(), msg_size, NULL);
+                    temp_str=ss.str();
+                    msg_size=temp_str.size();
+                    send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                    send(Connections[index], temp_str.c_str(), msg_size, NULL);
                 }
 
             }
@@ -418,7 +420,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                         time_t now = time(0);
                         char* dt = ctime(&now);
 
-                        temp_order="temp_order ";
+                        temp_order="data_temp_ ";
                         temp_order+=dt; //прибавляем дату-время для уникальности
                         ss<<temp_order<<"\');";
 
@@ -441,7 +443,6 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                                 cout<<"Note 2"<<endl;
                                 error_message();
                             }
-///ТУТ ПЕРЕСТАЛО РАБОТАТЬ
 
                         //в цикле проходим по multimap и заносим в таблицу значения для данного временного id
                         for(it=order_elements.begin(); it!=order_elements.end();++it)
@@ -455,7 +456,13 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                             ss3<<"(SELECT price FROM goods WHERE id="<<((*it).first)<<")*"<<((*it).second)<<")";
                             ss3<<");";
 
+//                            ss3<<"INSERT INTO orders_detailed (order_id, good_id, amount, total_cost) VALUES (";
+//                            ss3<<"1, 1, 1, 1);";
+
+
                             query = ss3.str();
+
+                            cout<<query<<endl;
 
                             const char* q2 = query.c_str();
 
@@ -498,12 +505,17 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                                     cout<<row[0]<<endl;
                                 }
 
+
+
                             //вносим полную стоимость заказа в столбец total_cost в orders
                             stringstream ss5;
                             ss5<<"UPDATE orders SET order_total_cost=";
+//                            total_cost_str="22222"; ///ДЕБАГ ВРЕМЕННО
                             ss5<<total_cost_str;
                             ss5<<" WHERE customer_name=\'"<<temp_order<<"\';";
                             query = ss5.str();
+
+                            cout<<query;
 
                             const char* q3 = query.c_str();
 
@@ -521,7 +533,6 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                                     error_message();
                                 }
 
-///ТУТ УЖЕ ВИСНЕТ
                             //отправляем сумму заказа, у клиента спросим подтверждение
                             //и ввод личн данных
                             msg_size=total_cost_str.size();
@@ -649,7 +660,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                                 }
 
                             cout<<order_full_data_to_client<<endl;
-
+                            ///НЕ РАБОТАЕТ ОБНОВЛЕНИЕ ОСТАТКОВ ВООБЩЕ
                             msg_size=order_full_data_to_client.size();
                             send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
                             send(Connections[index], order_full_data_to_client.c_str(), msg_size, NULL);
