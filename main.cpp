@@ -30,6 +30,14 @@ enum Request_Codes
     CHECK_ORDER_STATUS = 66666
 };
 
+enum User_Roles
+{
+    MANAGER = 1,
+    CUSTOMER = 2,
+    ADMIN = 3,
+    NO_USER = 0
+};
+
 void connect_sql()
 {
     connection=mysql_init(0);
@@ -105,7 +113,7 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
                     cout<<row[0]<<" "<<row[1]<<endl;
                     if(password==row[0])//если пароль верный, отпаравл€ем роль дл€ активации меню
                     {
-                        msg_size=sizeof(row[0]);///ќ“ѕ–ј¬»“№ Ѕ≈« SIZEOF
+                        msg_size=strlen(row[1]);
                         send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                         send(Connections[index], row[1], msg_size, NULL);
                     }
@@ -113,20 +121,27 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
                     {
                         cout<<"password doesn't match"<<endl;
                         const char* login = "0";
-                        msg_size=sizeof(login);///ќ“ѕ–ј¬»“№ Ѕ≈« SIZEOF
+                        msg_size=strlen(login);///ќѕ“»ћ»«»–ќ¬ј“№, нет нужды отправл€ть размер; прин€ть правильно в клиенте
                         send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                         send(Connections[index], login, msg_size, NULL);
                     }
 
                 }
-                else//если записи с таким логином нет, отправл€ем 0
+                else//если записи с таким логином нет, отправл€ем '0'/NO_USER
                 {
+                    ///OLD VERSION WORKS
                     cout<<"qstate "<<qstate<<endl;
-                    const char* role = "0";
-                    msg_size=sizeof(role);///ќ“ѕ–ј¬»“№ Ѕ≈« SIZEOF
+                    const char* role = "0"; //NO_USER
+                    msg_size=strlen(role);///ќѕ“»ћ»«»–ќ¬ј“№, нет нужды отправл€ть размер; прин€ть правильно в клиенте
                     send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                     send(Connections[index], role, msg_size, NULL);
                     cout<<"No such user"<<endl;
+
+//                    ///NEW VERSION TESTING
+//                    cout<<"qstate "<<qstate<<endl;
+//                    int role = NO_USER;
+//                    send(Connections[index], reinterpret_cast<char*>(&role), sizeof(int), NULL);
+//                    cout<<"No such user"<<endl;
 
                 }
 
