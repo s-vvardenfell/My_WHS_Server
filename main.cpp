@@ -54,32 +54,32 @@ void error_message()
 
 }
 
-void show_table_goods(string& msg)
-{
-    stringstream ss,ss1;
-    ss<<"SELECT * FROM goods;";
-    string temp=ss.str();
-    const char* q = temp.c_str();
-
-    if(connection)
-    {
-        int qstate = mysql_query(connection, q);
-
-        if(!qstate)
-        {
-            res = mysql_store_result(connection);
-
-            while(row = mysql_fetch_row(res))
-            {
-                cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<endl;
-                ss1<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<endl;
-                msg=ss1.str();
-            }
-        }
-        else
-            error_message();
-    }
-}
+//void show_table_goods(string& msg)
+//{
+//    stringstream ss,ss1;
+//    ss<<"SELECT * FROM goods;";
+//    string temp=ss.str();
+//    const char* q = temp.c_str();
+//
+//    if(connection)
+//    {
+//        int qstate = mysql_query(connection, q);
+//
+//        if(!qstate)
+//        {
+//            res = mysql_store_result(connection);
+//
+//            while(row = mysql_fetch_row(res))
+//            {
+//                cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<endl;
+//                ss1<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<endl;
+//                msg=ss1.str();
+//            }
+//        }
+//        else
+//            error_message();
+//    }
+//}
 
 void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 {
@@ -88,7 +88,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
     while (true)//бесконечн цикл, в кот будут приним и отпр сообщ-я клиентов
     {
 
-    recv(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+    recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
     char* msg = new char[msg_size+1];
     msg[msg_size] = '\0';
     recv(Connections[index], msg, msg_size, NULL);
@@ -101,7 +101,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
             if(request_code==AUTHORIZATION)
             {
                 //получаем и обрабатываем логин и пароль от клиента
-                recv(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                 char* login_and_password_data = new char[msg_size+1];
                 login_and_password_data[msg_size] = '\0';
                 recv(Connections[index], login_and_password_data, msg_size, NULL);
@@ -131,7 +131,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                     if(password==row[0])//если пароль верный, отпаравляем роль для активации меню
                     {
                         msg_size=sizeof(row[0]);
-                        send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                         send(Connections[index], row[1], msg_size, NULL);
                     }
                     else//если пароль неверный, отправляем 0
@@ -139,7 +139,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                         cout<<"password doesn't match"<<endl;
                         const char* login = "0";
                         msg_size=sizeof(login);
-                        send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                         send(Connections[index], login, msg_size, NULL);
                     }
 
@@ -149,7 +149,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                     cout<<"qstate "<<qstate<<endl;
                     const char* role = "0";
                     msg_size=sizeof(role);
-                    send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                    send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                     send(Connections[index], role, msg_size, NULL);
                     cout<<"No such user"<<endl;
 
@@ -178,7 +178,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                     msg_size=str.size();
                     cout<<"msg_size=sizeof(str) "<<msg_size<<endl;
                     cout<<str<<endl;
-                    send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                    send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                     send(Connections[index], str.c_str(), msg_size, NULL);
                 }
 
@@ -188,7 +188,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                 cout<<"Got check order status code"<<endl;
 
                 int order_code_from_client;
-                recv(Connections[index], (char*)&order_code_from_client, sizeof(int), NULL);
+                recv(Connections[index], reinterpret_cast<char*>(&order_code_from_client), sizeof(int), NULL);
 
                 cout<<"Got order number from client: "<<order_code_from_client<<endl;
 
@@ -215,7 +215,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 
                     temp_str=ss.str();
                     msg_size=temp_str.size();
-                    send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                    send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                     send(Connections[index], temp_str.c_str(), msg_size, NULL);
                 }
 
@@ -224,7 +224,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
             {
                 cout<<"Got show item detailed info"<<endl;
 
-                recv(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                 char* item_code = new char[msg_size+1];
                 item_code[msg_size] = '\0';
                 recv(Connections[index], item_code, msg_size, NULL);
@@ -249,7 +249,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                         ss1<<"SELECT id, name, (SELECT name FROM categories WHERE id="<<row[2]<<"), (SELECT name FROM suppliers WHERE id="<<row[3]<<"), amount, price FROM goods WHERE id="<<item_code<<endl;
                     }
 
-                    string temp_str=ss1.str();
+                    string temp_str=ss1.str(); ///убрать переобъявление
                     const char* q = temp_str.c_str();
 
                     qstate = mysql_query(connection, q);
@@ -265,7 +265,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 
                     temp_str=ss2.str();
                     msg_size=temp_str.size();
-                    send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                    send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                     send(Connections[index], temp_str.c_str(), msg_size, NULL);
                 }
 
@@ -276,7 +276,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
             {
                 cout<<"Registration menu"<<endl;
 
-                recv(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                 char* login_and_password_raw_data = new char[msg_size+1];
                 login_and_password_raw_data[msg_size] = '\0';
                 recv(Connections[index], login_and_password_raw_data, msg_size, NULL);
@@ -285,6 +285,8 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 
                 string login, password,
                         login_and_password = login_and_password_raw_data;
+
+                delete[] login_and_password_raw_data;
 
                 login = login_and_password.substr(0, login_and_password.find('*'));
                 login_and_password.erase(0, login_and_password.find('*')+1);
@@ -317,7 +319,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 
                 while(1)
                 {
-                    recv(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                    recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                     char* item_code = new char[msg_size+1];
                     item_code[msg_size] = '\0';
                     recv(Connections[index], item_code, msg_size, NULL);
@@ -347,10 +349,10 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 
                         temp_str=ss1.str();
                         msg_size=temp_str.size();
-                        send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                         send(Connections[index], temp_str.c_str(), msg_size, NULL);
 
-                        recv(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                        recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                         char* order_continue = new char[msg_size+1];
                         order_continue[msg_size] = '\0';
                         recv(Connections[index], order_continue, msg_size, NULL);
@@ -369,7 +371,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 
                 }
                     //получаем сформированный заказ в виде строки
-                    recv(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                    recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                     char* complete_order = new char[msg_size+1];
                     complete_order[msg_size] = '\0';
                     recv(Connections[index], complete_order, msg_size, NULL);
@@ -456,10 +458,6 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                             ss3<<"(SELECT price FROM goods WHERE id="<<((*it).first)<<")*"<<((*it).second)<<")";
                             ss3<<");";
 
-//                            ss3<<"INSERT INTO orders_detailed (order_id, good_id, amount, total_cost) VALUES (";
-//                            ss3<<"1, 1, 1, 1);";
-
-
                             query = ss3.str();
 
                             cout<<query<<endl;
@@ -472,11 +470,9 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                                 {
                                     cout<<"Record inserted"<<endl;
                                     cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
-                                    cout<<"Note 3"<<endl;
                                 }
                                 else
                                 {
-                                    cout<<"Note 4"<<endl;
                                     error_message();
                                 }
 
@@ -505,12 +501,9 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                                     cout<<row[0]<<endl;
                                 }
 
-
-
                             //вносим полную стоимость заказа в столбец total_cost в orders
                             stringstream ss5;
                             ss5<<"UPDATE orders SET order_total_cost=";
-//                            total_cost_str="22222"; ///ДЕБАГ ВРЕМЕННО
                             ss5<<total_cost_str;
                             ss5<<" WHERE customer_name=\'"<<temp_order<<"\';";
                             query = ss5.str();
@@ -536,14 +529,14 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                             //отправляем сумму заказа, у клиента спросим подтверждение
                             //и ввод личн данных
                             msg_size=total_cost_str.size();
-                            send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                            send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                             send(Connections[index], total_cost_str.c_str(), msg_size, NULL);
 
                             //если пришел ответ от клиента что отменить заказ - удаляем temp из таблицы
                             //если оформляем заказ - принимаем имя и адрес
                             //получаем имя*адрес или @denied@ для удаления временной записи
 
-                            recv(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                            recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                             char* confirm_or_denied = new char[msg_size + 1];
                             confirm_or_denied[msg_size] = '\0';
                             recv(Connections[index], confirm_or_denied, msg_size, NULL);
@@ -660,9 +653,9 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                                 }
 
                             cout<<order_full_data_to_client<<endl;
-                            ///НЕ РАБОТАЕТ ОБНОВЛЕНИЕ ОСТАТКОВ ВООБЩЕ
+                            ///НЕ РАБОТАЕТ ОБНОВЛЕНИЕ ОСТАТКОВ при кол-ве позиций в заказе больше 1
                             msg_size=order_full_data_to_client.size();
-                            send(Connections[index], (char*)&msg_size, sizeof(int), NULL);
+                            send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                             send(Connections[index], order_full_data_to_client.c_str(), msg_size, NULL);
 
                             //списываю товар с остатков, т.к. заказ сформирован и отправлен
