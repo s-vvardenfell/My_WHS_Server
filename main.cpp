@@ -54,33 +54,6 @@ void error_message()
 
 }
 
-//void show_table_goods(string& msg)
-//{
-//    stringstream ss,ss1;
-//    ss<<"SELECT * FROM goods;";
-//    string temp=ss.str();
-//    const char* q = temp.c_str();
-//
-//    if(connection)
-//    {
-//        int qstate = mysql_query(connection, q);
-//
-//        if(!qstate)
-//        {
-//            res = mysql_store_result(connection);
-//
-//            while(row = mysql_fetch_row(res))
-//            {
-//                cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<endl;
-//                ss1<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<endl;
-//                msg=ss1.str();
-//            }
-//        }
-//        else
-//            error_message();
-//    }
-//}
-
 void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 {
     int msg_size, request_code;
@@ -93,6 +66,8 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
     msg[msg_size] = '\0';
     recv(Connections[index], msg, msg_size, NULL);
     request_code=atoi(msg);
+
+    delete[] msg;
 
     cout<<"Request code from client: "<<request_code<<endl;
 
@@ -117,8 +92,8 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 
                 stringstream ss;
                 ss<<"SELECT password, role_id FROM user_list WHERE name="<<login;
-                string str = ss.str();
-                int qstate = mysql_query(connection, str.c_str());
+                string query = ss.str();
+                int qstate = mysql_query(connection, query.c_str());
 
                 if(!qstate)
                     res = mysql_store_result(connection);
@@ -130,7 +105,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                     cout<<row[0]<<" "<<row[1]<<endl;
                     if(password==row[0])//если пароль верный, отпаравляем роль для активации меню
                     {
-                        msg_size=sizeof(row[0]);
+                        msg_size=sizeof(row[0]);///ОТПРАВИТЬ БЕЗ SIZEOF
                         send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                         send(Connections[index], row[1], msg_size, NULL);
                     }
@@ -138,7 +113,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                     {
                         cout<<"password doesn't match"<<endl;
                         const char* login = "0";
-                        msg_size=sizeof(login);
+                        msg_size=sizeof(login);///ОТПРАВИТЬ БЕЗ SIZEOF
                         send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                         send(Connections[index], login, msg_size, NULL);
                     }
@@ -148,7 +123,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                 {
                     cout<<"qstate "<<qstate<<endl;
                     const char* role = "0";
-                    msg_size=sizeof(role);
+                    msg_size=sizeof(role);///ОТПРАВИТЬ БЕЗ SIZEOF
                     send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                     send(Connections[index], role, msg_size, NULL);
                     cout<<"No such user"<<endl;
@@ -174,12 +149,11 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                         ss<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<endl;
                     }
 
-                    string str=ss.str();
-                    msg_size=str.size();
-                    cout<<"msg_size=sizeof(str) "<<msg_size<<endl;
-                    cout<<str<<endl;
+                    string query=ss.str();
+                    msg_size=query.size();
+                    cout<<query<<endl;
                     send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                    send(Connections[index], str.c_str(), msg_size, NULL);
+                    send(Connections[index], query.c_str(), msg_size, NULL);
                 }
 
             }
@@ -194,10 +168,9 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 
                 stringstream ss;
                 ss<<"SELECT * FROM orders_detailed INNER JOIN orders ON orders_detailed.order_id=orders.order_id WHERE orders_detailed.order_id="<<order_code_from_client;
-//                ss<<"SELECT * FROM orders_detailed WHERE orders_detailed.order_id="<<order_code_from_client;
 
-                string temp_str=ss.str();
-                const char* q = temp_str.c_str();
+                string query=ss.str();
+                const char* q = query.c_str();
                 ss.str(string(""));
 
                 if(connection)
@@ -213,10 +186,10 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                         ss<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]<<" "<<row[8]<<" "<<row[9]<<" "<<row[10]<<endl;
                     }
 
-                    temp_str=ss.str();
-                    msg_size=temp_str.size();
+                    query=ss.str();
+                    msg_size=query.size();
                     send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                    send(Connections[index], temp_str.c_str(), msg_size, NULL);
+                    send(Connections[index], query.c_str(), msg_size, NULL);
                 }
 
             }
@@ -224,17 +197,19 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
             {
                 cout<<"Got show item detailed info"<<endl;
 
+                //getting item code
                 recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                char* item_code = new char[msg_size+1];
+                char* item_code = new char[msg_size+1]; ///ОТПРАВИТЬ-ПРИНЯТЬ БЕЗ SIZEOF
                 item_code[msg_size] = '\0';
                 recv(Connections[index], item_code, msg_size, NULL);
 
                 cout<<"Got item code "<<item_code<<endl;
 
-                stringstream ss,ss1,ss2;
+                stringstream ss;
                 ss<<"SELECT * FROM goods WHERE id="<<item_code;
-                string temp_str=ss.str();
-                const char* q = temp_str.c_str();
+                string query=ss.str();
+                ss.str(string(""));
+                const char* q = query.c_str();
 
                 if(connection)
                 {
@@ -246,11 +221,14 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                     while(row = mysql_fetch_row(res))
                     {
                         cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<endl;
-                        ss1<<"SELECT id, name, (SELECT name FROM categories WHERE id="<<row[2]<<"), (SELECT name FROM suppliers WHERE id="<<row[3]<<"), amount, price FROM goods WHERE id="<<item_code<<endl;
+                        ss<<"SELECT id, name, (SELECT name FROM categories WHERE id="<<row[2]<<"), (SELECT name FROM suppliers WHERE id="<<row[3]<<"), amount, price FROM goods WHERE id="<<item_code<<endl;
                     }
 
-                    string temp_str=ss1.str(); ///убрать переобъявление
-                    const char* q = temp_str.c_str();
+//                    string temp_str=ss.str();
+                    query=ss.str();
+                    ss.str(string(""));
+//                    const char* q = temp_str.c_str();
+                    q = query.c_str();
 
                     qstate = mysql_query(connection, q);
 
@@ -260,13 +238,14 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                     while(row = mysql_fetch_row(res))
                     {
                         cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<endl;
-                        ss2<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<endl;
+                        ss<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<endl;
                     }
 
-                    temp_str=ss2.str();
-                    msg_size=temp_str.size();
+                    query=ss.str();
+                    msg_size=query.size();
                     send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                    send(Connections[index], temp_str.c_str(), msg_size, NULL);
+                    send(Connections[index], query.c_str(), msg_size, NULL);
+
                 }
 
                 delete[] item_code;
@@ -276,6 +255,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
             {
                 cout<<"Registration menu"<<endl;
 
+                //getting login and password from client
                 recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                 char* login_and_password_raw_data = new char[msg_size+1];
                 login_and_password_raw_data[msg_size] = '\0';
@@ -326,10 +306,11 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 
                     cout<<"Got item code "<<item_code<<endl;
 
-                    stringstream ss,ss1,ss2;
+                    stringstream ss;
                     ss<<"SELECT name, amount, price FROM goods WHERE id="<<item_code;
-                    string temp_str=ss.str();
-                    const char* q = temp_str.c_str();
+                    string query=ss.str();
+                    ss.str(string(""));
+                    const char* q = query.c_str();
 
                     delete[] item_code;
 
@@ -344,13 +325,14 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                         while(row = mysql_fetch_row(res))
                         {
                             cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<endl;
-                            ss1<<row[0]<<"*"<<row[1]<<"*"<<row[2]<<endl;
+                            ss<<row[0]<<"*"<<row[1]<<"*"<<row[2]<<endl;
                         }
 
-                        temp_str=ss1.str();
-                        msg_size=temp_str.size();
+                        query=ss.str();
+                        ss.str(string(""));
+                        msg_size=query.size();
                         send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                        send(Connections[index], temp_str.c_str(), msg_size, NULL);
+                        send(Connections[index], query.c_str(), msg_size, NULL);
 
                         recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                         char* order_continue = new char[msg_size+1];
@@ -394,7 +376,6 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                         atoi(((temp_str.substr(0, temp_str.find('_'))).substr(0,temp_str.find('*'))).c_str()),
                         atof(((temp_str.substr(0, temp_str.find('_'))).substr(temp_str.find('*')+1,temp_str.find('_'))).c_str())
                                                 );
-
                         temp_str.erase(0, temp_str.find('_')+1);
                     }
 
@@ -416,7 +397,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 
                         //создаю запись "temp_order date time" в поле name таблицы orders для работы с текущим
                         //заказом, избегая подсчета строк в таблице для создания нового заказа
-                        stringstream ss, ss2;
+                        stringstream ss;
                         ss<<"INSERT INTO orders (customer_name) VALUES (\'";
 
                         time_t now = time(0);
@@ -427,6 +408,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                         ss<<temp_order<<"\');";
 
                         string query = ss.str();
+                        ss.str(string(""));
 
                         cout<<query<<endl;
 
@@ -449,22 +431,21 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                         //в цикле проходим по multimap и заносим в таблицу значения для данного временного id
                         for(it=order_elements.begin(); it!=order_elements.end();++it)
                         {
-
-                            stringstream ss3;
-                            ss3<<"INSERT INTO orders_detailed (order_id, good_id, amount, total_cost) "
+                            ss<<"INSERT INTO orders_detailed (order_id, good_id, amount, total_cost) "
                             "VALUES (";
-                            ss3<<"(SELECT order_id FROM orders WHERE customer_name=\'"<<temp_order<<"\'), ";
-                            ss3<<((*it).first)<<", "<<((*it).second)<<", (";
-                            ss3<<"(SELECT price FROM goods WHERE id="<<((*it).first)<<")*"<<((*it).second)<<")";
-                            ss3<<");";
+                            ss<<"(SELECT order_id FROM orders WHERE customer_name=\'"<<temp_order<<"\'), ";
+                            ss<<((*it).first)<<", "<<((*it).second)<<", (";
+                            ss<<"(SELECT price FROM goods WHERE id="<<((*it).first)<<")*"<<((*it).second)<<")";
+                            ss<<");";
 
-                            query = ss3.str();
-
+                            query = ss.str();
+                            ss.str(string(""));
                             cout<<query<<endl;
 
-                            const char* q2 = query.c_str();
+//                            const char* q2 = query.c_str();
+                            q = query.c_str();
 
-                            qstate = mysql_query(connection,q2);
+                            qstate = mysql_query(connection,q);
 
                                 if(!qstate)
                                 {
@@ -477,18 +458,18 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                                 }
 
                         }
-
                             //считаем стоимость заказа по orders_detailed и заносим в orders
-                            stringstream ss4;
 
-                            ss4<<"SELECT SUM(total_cost) FROM orders_detailed GROUP BY order_id HAVING order_id=";
-                            ss4<<"(SELECT order_id FROM orders WHERE customer_name=\'"<<temp_order<<"\')";
+                            ss<<"SELECT SUM(total_cost) FROM orders_detailed GROUP BY order_id HAVING order_id=";
+                            ss<<"(SELECT order_id FROM orders WHERE customer_name=\'"<<temp_order<<"\')";
 
-                            query = ss4.str();
+                            query = ss.str();
+                            ss.str(string(""));
 
-                            const char* q2 = query.c_str();
+//                            const char* q2 = query.c_str();
+                            q = query.c_str();
 
-                            qstate = mysql_query(connection,q2);
+                            qstate = mysql_query(connection,q);
 
                             string total_cost_str;//строка содержащая значение - сумму по заказу
                             cout<<"Got total cost in orders_detailed : ";
@@ -502,17 +483,19 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                                 }
 
                             //вносим полную стоимость заказа в столбец total_cost в orders
-                            stringstream ss5;
-                            ss5<<"UPDATE orders SET order_total_cost=";
-                            ss5<<total_cost_str;
-                            ss5<<" WHERE customer_name=\'"<<temp_order<<"\';";
-                            query = ss5.str();
+
+                            ss<<"UPDATE orders SET order_total_cost=";
+                            ss<<total_cost_str;
+                            ss<<" WHERE customer_name=\'"<<temp_order<<"\';";
+                            query = ss.str();
+                            ss.str(string(""));
 
                             cout<<query;
 
-                            const char* q3 = query.c_str();
+//                            const char* q3 = query.c_str();
+                            q = query.c_str();
 
-                            qstate = mysql_query(connection,q3);
+                            qstate = mysql_query(connection,q);
 
                                 if(!qstate)
                                 {
@@ -544,13 +527,14 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 
                             if(string(confirm_or_denied)=="@denied@")//удаляю записи из order и order_detailed для данного temp_order
                             {
-                                stringstream ss6;
-                                ss6<<"DELETE FROM orders WHERE customer_name=\'"<<temp_order<<"\';";
-                                query = ss6.str();
-                                cout<<query<<endl;
-                                const char* q4 = query.c_str();
 
-                                qstate = mysql_query(connection,q4);
+                                ss<<"DELETE FROM orders WHERE customer_name=\'"<<temp_order<<"\';";
+                                query = ss.str();
+                                ss.str(string(""));
+                                cout<<query<<endl;
+//                                const char* q4 = query.c_str();
+                                q = query.c_str();
+                                qstate = mysql_query(connection,q);
 
                                 if(!qstate)
                                 {
@@ -565,10 +549,10 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                             else //заношу имя и адрес в стобцы в orders, делаю селект и отправляю клиенту для формирования чека
                             {
                                 //сохраняю id заказа для последующего использования, когда по name будет не найти
-                                stringstream ss6;
-                                ss6<<"SELECT order_id FROM orders WHERE customer_name=\'"<<temp_order<<"\'";
 
-                                query = ss6.str();
+                                ss<<"SELECT order_id FROM orders WHERE customer_name=\'"<<temp_order<<"\'";
+                                query = ss.str();
+                                ss.str(string(""));
                                 q = query.c_str();
                                 qstate = mysql_query(connection,q);
 
@@ -584,12 +568,13 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                                 //меняю temp_name и пустое поле адрес на данные клиента
                                 string name_and_address = confirm_or_denied;//сохраняю имя*адрес в string для обработки
                                 delete[] confirm_or_denied;
-                                stringstream ss7;
-                                ss7<<"UPDATE orders SET customer_name=\'"<<(name_and_address.substr(0, name_and_address.find('*')))<<"\'";
+
+                                ss<<"UPDATE orders SET customer_name=\'"<<(name_and_address.substr(0, name_and_address.find('*')))<<"\'";
                                 name_and_address.erase(0, name_and_address.find('*')+1);
-                                ss7<<", customer_address=\'"<<name_and_address<<"\'";
-                                ss7<<" WHERE order_id=(SELECT order_id FROM orders WHERE customer_name=\'"<<temp_order<<"\');";
-                                query = ss7.str();
+                                ss<<", customer_address=\'"<<name_and_address<<"\'";
+                                ss<<" WHERE order_id=(SELECT order_id FROM orders WHERE customer_name=\'"<<temp_order<<"\');";
+                                query = ss.str();
+                                ss.str(string(""));
                                 cout<<query<<endl;
                                 q = query.c_str();//вот тут можно использовать один и тот же q с самого начала как и query
 
@@ -611,11 +596,11 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 
                             //из таблицы orders
 
-                            stringstream ss7;
-                            ss7<<"SELECT * FROM orders WHERE order_id=\'"<<id<<"\';";
+                            ss<<"SELECT * FROM orders WHERE order_id=\'"<<id<<"\';";
 
                             string order_full_data_to_client;
-                            query = ss7.str();
+                            query = ss.str();
+                            ss.str(string(""));
                             q = query.c_str();
 
                             qstate = mysql_query(connection,q);
@@ -633,10 +618,11 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                             //из таблицы orders_detailed
 
                             order_full_data_to_client+='#';//добавляю разделитель для последующей обработки
-                            stringstream ss8;
-                            ss8<<"SELECT name, orders_detailed.amount, total_cost FROM orders_detailed INNER JOIN goods ON orders_detailed.good_id=goods.id WHERE order_id=\'"<<id<<"\';";
 
-                            query = ss8.str();
+                            ss<<"SELECT name, orders_detailed.amount, total_cost FROM orders_detailed INNER JOIN goods ON orders_detailed.good_id=goods.id WHERE order_id=\'"<<id<<"\';";
+
+                            query = ss.str();
+                            ss.str(string(""));
                             q = query.c_str();
 
                             qstate = mysql_query(connection,q);
@@ -659,26 +645,25 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                             send(Connections[index], order_full_data_to_client.c_str(), msg_size, NULL);
 
                             //списываю товар с остатков, т.к. заказ сформирован и отправлен
-                            stringstream ss9;
 
-                            ss9<<"UPDATE goods SET amount = (goods.amount-(SELECT orders_detailed.amount FROM orders_detailed WHERE order_id="<<id;
-                            ss9<<") ) WHERE id IN (SELECT orders_detailed.good_id FROM orders_detailed WHERE order_id ="<<id;
-                            ss9<<");";
-                            query = ss9.str();
+                            ss<<"UPDATE goods SET amount = (goods.amount-(SELECT orders_detailed.amount FROM orders_detailed WHERE order_id="<<id;
+                            ss<<") ) WHERE id IN (SELECT orders_detailed.good_id FROM orders_detailed WHERE order_id ="<<id;
+                            ss<<");";
+                            query = ss.str();
+                            ss.str(string(""));
                             cout<<query<<endl;
 
                             q = query.c_str();//вот тут можно использовать один и тот же q с самого начала как и query
-
                             qstate = mysql_query(connection,q);
 
                             if(!qstate)
                             {
-                                cout<<"goods.amount had been corrected"<<endl;
+                                cout<<"goods.amount had been changed"<<endl;
                                 cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
                             }
                             else
                             {
-                                cout<<"Shoot"<<endl;
+                                cout<<"goods.amount had NOT been changed"<<endl;
                                 error_message();
 
                             }
@@ -689,7 +674,7 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                 break;
         }
 
-        delete[] msg;
+
     }
 }
 
