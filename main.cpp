@@ -27,7 +27,10 @@ enum Request_Codes
     ITEM_DETAILED_INFO = 33333,
     SELL_MENU = 44444,
     REGISTRATION = 55555,
-    CHECK_ORDER_STATUS = 66666
+    CHECK_ORDER_STATUS = 66666,
+    CHANGE_USER = 77777,
+    USER_EXIT = 88888,
+
 };
 
 enum User_Roles
@@ -176,8 +179,13 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
             {
                 cout<<"Got check order status code"<<endl;
 
-                int order_code_from_client;
-                recv(Connections[index], reinterpret_cast<char*>(&order_code_from_client), sizeof(int), NULL);
+//                int order_code_from_client;
+//                recv(Connections[index], reinterpret_cast<char*>(&order_code_from_client), sizeof(int), NULL);
+
+                recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+                char* order_code_from_client = new char[msg_size+1]; ///ќ“ѕ–ј¬»“№-ѕ–»Ќя“№ Ѕ≈« SIZEOF
+                order_code_from_client[msg_size] = '\0';
+                recv(Connections[index], order_code_from_client, msg_size, NULL);
 
                 cout<<"Got order number from client: "<<order_code_from_client<<endl;
 
@@ -239,10 +247,8 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
                         ss<<"SELECT id, name, (SELECT name FROM categories WHERE id="<<row[2]<<"), (SELECT name FROM suppliers WHERE id="<<row[3]<<"), amount, price FROM goods WHERE id="<<item_code<<endl;
                     }
 
-//                    string temp_str=ss.str();
                     query=ss.str();
                     ss.str(string(""));
-//                    const char* q = temp_str.c_str();
                     q = query.c_str();
 
                     qstate = mysql_query(connection, q);
@@ -276,7 +282,7 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
                 login_and_password_raw_data[msg_size] = '\0';
                 recv(Connections[index], login_and_password_raw_data, msg_size, NULL);
 
-                cout<<login_and_password_raw_data<<endl;
+                cout<<"login_and_password_raw_data: "<<login_and_password_raw_data<<endl;
 
                 string login, password,
                         login_and_password = login_and_password_raw_data;
@@ -287,24 +293,62 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
                 login_and_password.erase(0, login_and_password.find('*')+1);
                 password=login_and_password;
 
-                cout<<login<<" "<<password<<endl;
+                cout<<"login: "<<login<<" & password: "<<password<<endl;
 
                 stringstream ss;
-                ss<<"INSERT INTO user_list (name, password, role_id) VALUES (\'";
-                ss<<login<<"\',\'"<<password<<"\',"<<"2);"; //добавить сюда подзапрос из таблицы ролей
-                string query = ss.str();
-                cout<<query<<endl;
+
+                ss<<"SELECT id FROM user_list WHERE name=\'"<<login<<"\';";
+                string query=ss.str();
                 const char* q = query.c_str();
+                ss.str(string(""));
 
-                int qstate = mysql_query(connection,q);
-
-                if(!qstate)
+                if(connection)
                 {
-                    cout<<"New user created"<<endl;
-                    cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
+                    int qstate = mysql_query(connection, q);
+                    if(!qstate)
+                        res = mysql_store_result(connection);
+                        unsigned int number_of_results = mysql_num_rows(res);
+
+                    if(!number_of_results)
+                    {
+                        cout<<"id's with this name(login) from user_list: "<<number_of_results<<" user doesn't exists!"<<endl;
+
+                        ss<<"INSERT INTO user_list (name, password, role_id) VALUES (\'";
+                        ss<<login<<"\',\'"<<password<<"\',"<<"2);"; //добавить сюда подзапрос из таблицы ролей
+                        query = ss.str();
+                        cout<<query<<endl;
+                        q = query.c_str();
+
+                        qstate = mysql_query(connection,q);
+
+                        if(!qstate)
+                        {
+                            cout<<"New user created"<<endl;
+                            cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
+
+                            string registration_confirm = to_string(CUSTOMER); //set 2, can't create admin or manager with client application
+                            msg_size=registration_confirm.size();
+                            send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+                            send(Connections[index], registration_confirm.c_str(), msg_size, NULL);
+                        }
+                        else
+                        {
+                                error_message();
+                        }
+
+                    }
+                    else
+                    {
+                        cout<<"id's with this name(login) from user_list: "<<number_of_results<<" user already exists!"<<endl;
+
+                        string registration_confirm = to_string(NO_USER); //set 2, can't create admin or manager with client application
+                        msg_size=registration_confirm.size();
+                        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+                        send(Connections[index], registration_confirm.c_str(), msg_size, NULL);
+                        error_message();
+                    }
+
                 }
-                else
-                    error_message();
 
             }
             else if(request_code==SELL_MENU)
@@ -685,8 +729,25 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
 
                     }
             }
-            else
+            else if(request_code==CHANGE_USER)
+            {
+                cout<<"=====got change client code====="<<endl;
+
+
+            }
+            else if(request_code==USER_EXIT)
+            {
+                cout<<"=====got user exit code====="<<endl;
+                //Connections[index]
+
+                //завершаем работу потока, но не сервера
                 break;
+            }
+            else
+            {
+                break;
+            }
+
         }
 
 
