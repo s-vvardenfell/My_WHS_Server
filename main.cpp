@@ -242,7 +242,8 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
                 cout<<"Got item code "<<item_code<<endl;
 
                 stringstream ss;
-                ss<<"SELECT * FROM goods WHERE id="<<item_code;
+                ss<<"SELECT name FROM goods WHERE id="<<item_code;
+
                 string query=ss.str();
                 ss.str(string(""));
                 const char* q = query.c_str();
@@ -259,13 +260,20 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 
                     if(number_of_results)
                     {
-                        while(row = mysql_fetch_row(res))
-                        {
-                            cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<endl;
-                            ss<<"SELECT id, name, (SELECT name FROM categories WHERE id="<<row[2]<<"), (SELECT name FROM suppliers WHERE id="<<row[3]<<"), amount, price FROM goods WHERE id="<<item_code<<endl;
-                        }
+//                        while(row = mysql_fetch_row(res))
+//                        {
+//                            cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<endl;
+//                            ss<<"SELECT id, name, (SELECT name FROM categories WHERE id="<<row[2]<<"), (SELECT name FROM suppliers WHERE id="<<row[3]<<"), amount, price FROM goods WHERE id="<<item_code<<endl;
+//                        }
+
+                        ss<<"SELECT orders_detailed.order_id, (SELECT name FROM goods WHERE id="<<item_code<<") AS 'name',"
+                        "(SELECT name FROM categories WHERE id =(SELECT category_id FROM goods WHERE goods.id="<<item_code<<")) AS 'category',"
+                        "(SELECT name FROM suppliers WHERE id =(SELECT supplier_id FROM goods WHERE goods.id="<<item_code<<")) AS 'supplier',"
+                        "amount AS 'amount_in_order', total_cost AS 'sum_on_warehouse', customer_name, customer_address, order_total_cost"
+                        " FROM orders_detailed INNER JOIN orders ON orders_detailed.order_id=orders.order_id WHERE orders_detailed.good_id="<<item_code<<";";
 
                         query=ss.str();
+                        cout<<query<<endl;
                         ss.str(string(""));
                         q = query.c_str();
 
@@ -276,8 +284,8 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 
                         while(row = mysql_fetch_row(res))
                         {
-                            cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<endl;
-                            ss<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<endl;
+                            cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]<<" "<<row[8]<<endl;
+                            ss<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]<<" "<<row[8]<<endl;
                         }
 
                         query=ss.str();
