@@ -203,16 +203,29 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
                     if(!qstate)
                         res = mysql_store_result(connection);
 
-                    while(row = mysql_fetch_row(res))
-                    {
-                        cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]/*<<" "<<row[8]<<" "<<row[9]<<" "<<row[10]*/<<endl;
-                        ss<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]<<" "<<row[8]<<" "<<row[9]<<" "<<row[10]<<endl;
-                    }
+                    int number_of_results = mysql_num_rows(res);
+                    cout<<"number_of_results: "<<number_of_results<<endl;
 
-                    query=ss.str();
-                    msg_size=query.size();
-                    send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                    send(Connections[index], query.c_str(), msg_size, NULL);
+                    if(number_of_results)
+                    {
+                        while(row = mysql_fetch_row(res))
+                        {
+                            cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]/*<<" "<<row[8]<<" "<<row[9]<<" "<<row[10]*/<<endl;
+                            ss<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]<<" "<<row[8]<<" "<<row[9]<<" "<<row[10]<<endl;
+                        }
+
+                        query = ss.str();
+                        msg_size = query.size();
+                        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+                        send(Connections[index], query.c_str(), msg_size, NULL);
+                    }
+                    else
+                    {
+                        query = "no such order";
+                        msg_size = query.size();
+                        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+                        send(Connections[index], query.c_str(), msg_size, NULL);
+                    }
                 }
 
             }
@@ -222,7 +235,7 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
 
                 //getting item code
                 recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                char* item_code = new char[msg_size+1]; ///ќ“ѕ–ј¬»“№-ѕ–»Ќя“№ Ѕ≈« SIZEOF
+                char* item_code = new char[msg_size+1];
                 item_code[msg_size] = '\0';
                 recv(Connections[index], item_code, msg_size, NULL);
 
@@ -241,32 +254,44 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
                     if(!qstate)
                         res = mysql_store_result(connection);
 
-                    while(row = mysql_fetch_row(res))
+                    int number_of_results = mysql_num_rows(res);
+                    cout<<"number_of_results: "<<number_of_results<<endl;
+
+                    if(number_of_results)
                     {
-                        cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<endl;
-                        ss<<"SELECT id, name, (SELECT name FROM categories WHERE id="<<row[2]<<"), (SELECT name FROM suppliers WHERE id="<<row[3]<<"), amount, price FROM goods WHERE id="<<item_code<<endl;
+                        while(row = mysql_fetch_row(res))
+                        {
+                            cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<endl;
+                            ss<<"SELECT id, name, (SELECT name FROM categories WHERE id="<<row[2]<<"), (SELECT name FROM suppliers WHERE id="<<row[3]<<"), amount, price FROM goods WHERE id="<<item_code<<endl;
+                        }
+
+                        query=ss.str();
+                        ss.str(string(""));
+                        q = query.c_str();
+
+                        qstate = mysql_query(connection, q);
+
+                        if(!qstate)
+                            res = mysql_store_result(connection);
+
+                        while(row = mysql_fetch_row(res))
+                        {
+                            cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<endl;
+                            ss<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<endl;
+                        }
+
+                        query=ss.str();
+                        msg_size=query.size();
+                        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+                        send(Connections[index], query.c_str(), msg_size, NULL);
                     }
-
-                    query=ss.str();
-                    ss.str(string(""));
-                    q = query.c_str();
-
-                    qstate = mysql_query(connection, q);
-
-                    if(!qstate)
-                        res = mysql_store_result(connection);
-
-                    while(row = mysql_fetch_row(res))
+                    else
                     {
-                        cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<endl;
-                        ss<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<endl;
+                        query="no such item id";
+                        msg_size=query.size();
+                        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+                        send(Connections[index], query.c_str(), msg_size, NULL);
                     }
-
-                    query=ss.str();
-                    msg_size=query.size();
-                    send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                    send(Connections[index], query.c_str(), msg_size, NULL);
-
                 }
 
                 delete[] item_code;
@@ -307,7 +332,7 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
                     int qstate = mysql_query(connection, q);
                     if(!qstate)
                         res = mysql_store_result(connection);
-                        unsigned int number_of_results = mysql_num_rows(res);
+                        int number_of_results = mysql_num_rows(res);
 
                     if(!number_of_results)
                     {
@@ -380,18 +405,34 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
 
                         if(!qstate)
                             res = mysql_store_result(connection);
+                            int number_of_results = mysql_num_rows(res);
+                            cout<<"number_of_results: "<<number_of_results<<endl;
 
+                        if(!number_of_results)//if there is no such item id - break/continue
+                        {
+                            query="0 results";
+                            msg_size=query.size();
+                            cout<<"!number_of_results: "<<number_of_results<<endl;
+                            send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+                            send(Connections[index], query.c_str(), msg_size, NULL);
+
+                            break;
+                        }
+
+                        cout<<"#1"<<endl;
                         while(row = mysql_fetch_row(res))
                         {
                             cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<endl;
                             ss<<row[0]<<"*"<<row[1]<<"*"<<row[2]<<endl;
                         }
 
-                        query=ss.str();
+                        string str_query="";
+                        str_query=ss.str();
+                        cout<<"message to client: "<<str_query<<endl;
                         ss.str(string(""));
-                        msg_size=query.size();
+                        msg_size=str_query.size();
                         send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                        send(Connections[index], query.c_str(), msg_size, NULL);
+                        send(Connections[index], str_query.c_str(), msg_size, NULL);
 
                         recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                         char* order_continue = new char[msg_size+1];
@@ -411,6 +452,7 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
                     }
 
                 }
+
                     //получаем сформированный заказ в виде строки
                     recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                     char* complete_order = new char[msg_size+1];
@@ -548,10 +590,6 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
                             ss<<" WHERE customer_name=\'"<<temp_order<<"\';";
                             query = ss.str();
                             ss.str(string(""));
-
-                            cout<<query;
-
-//                            const char* q3 = query.c_str();
                             q = query.c_str();
 
                             qstate = mysql_query(connection,q);
@@ -559,12 +597,10 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
                                 if(!qstate)
                                 {
                                     cout<<"Records inserted"<<endl;
-                                    cout<<"Note 5"<<endl;
                                     cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
                                 }
                                 else
                                 {
-                                    cout<<"Note 6"<<endl;
                                     error_message();
                                 }
 
