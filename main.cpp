@@ -3,7 +3,6 @@
 #include <windows.h>
 #include <mysql.h>
 #include <sstream>
-#include <vector>
 #include <string>
 #include <ctime>
 #include <algorithm>
@@ -133,7 +132,6 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
                 else//если записи с таким логином нет, отправл€ем '0'/NO_USER
                 {
                     ///OLD VERSION WORKS
-                    cout<<"qstate "<<qstate<<endl;
                     const char* role = "0"; //NO_USER
                     msg_size=strlen(role);///ќѕ“»ћ»«»–ќ¬ј“№, нет нужды отправл€ть размер; прин€ть правильно в клиенте
                     send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
@@ -427,7 +425,6 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
                             break;
                         }
 
-                        cout<<"#1"<<endl;
                         while(row = mysql_fetch_row(res))
                         {
                             cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<endl;
@@ -528,12 +525,10 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
                             if(!qstate)
                             {
                                 cout<<"Record inserted"<<endl;
-                                cout<<"Note 1"<<endl;
                                 cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
                             }
                             else
                             {
-                                cout<<"Note 2"<<endl;
                                 error_message();
                             }
 
@@ -574,8 +569,6 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
 
                             query = ss.str();
                             ss.str(string(""));
-
-//                            const char* q2 = query.c_str();
                             q = query.c_str();
 
                             qstate = mysql_query(connection,q);
@@ -604,7 +597,7 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
 
                                 if(!qstate)
                                 {
-                                    cout<<"Records inserted"<<endl;
+                                    cout<<"Records updated"<<endl;
                                     cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
                                 }
                                 else
@@ -685,7 +678,7 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
 
                                     if(!qstate)
                                     {
-                                        cout<<"Records inserted"<<endl;
+                                        cout<<"Records updated"<<endl;
                                         cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
                                     }
                                     else
@@ -742,34 +735,56 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
                                 }
 
                             cout<<order_full_data_to_client<<endl;
-                            ///Ќ≈ –јЅќ“ј≈“ ќЅЌќ¬Ћ≈Ќ»≈ ќ—“ј“ ќ¬ при кол-ве позиций в заказе больше 1
+
                             msg_size=order_full_data_to_client.size();
                             send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                             send(Connections[index], order_full_data_to_client.c_str(), msg_size, NULL);
 
                             //списываю товар с остатков, т.к. заказ сформирован и отправлен
 
-                            ss<<"UPDATE goods SET amount = (goods.amount-(SELECT orders_detailed.amount FROM orders_detailed WHERE order_id="<<id;
-                            ss<<") ) WHERE id IN (SELECT orders_detailed.good_id FROM orders_detailed WHERE order_id ="<<id;
-                            ss<<");";
+                            ss<<"SELECT good_id FROM orders_detailed WHERE order_id="<<id<<";";
                             query = ss.str();
                             ss.str(string(""));
-                            cout<<query<<endl;
+                            q = query.c_str();
 
-                            q = query.c_str();//вот тут можно использовать один и тот же q с самого начала как и query
+                            map<int, string> good_idS_for_update;
+                            int counter=0;
+
                             qstate = mysql_query(connection,q);
 
                             if(!qstate)
-                            {
-                                cout<<"goods.amount had been changed"<<endl;
-                                cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
-                            }
-                            else
-                            {
-                                cout<<"goods.amount had NOT been changed"<<endl;
-                                error_message();
+                                res = mysql_store_result(connection);
 
-                            }
+                                while(row = mysql_fetch_row(res))
+                                {
+                                    cout<<row[0]<<endl;
+
+                                    ss<<"UPDATE goods SET amount = (goods.amount-(SELECT orders_detailed.amount FROM orders_detailed WHERE order_id = "<<id<<" AND good_id = "<<row[0];
+                                    ss<<")) WHERE goods.id = "<<row[0]<<";";
+                                    query = ss.str();
+                                    ss.str(string(""));
+                                    cout<<query<<endl;
+
+                                    q = query.c_str();
+                                    qstate = mysql_query(connection,q);
+
+                                    if(!qstate)
+                                    {
+                                        cout<<"goods.amount had been changed"<<endl;
+                                        cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
+                                    }
+                                    else
+                                    {
+                                        cout<<"goods.amount had NOT been changed"<<endl;
+                                        error_message();
+
+                                    }
+
+
+                                }
+
+
+
 
                     }
             }
