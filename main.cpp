@@ -16,8 +16,12 @@ MYSQL* connection;
 MYSQL_ROW row;
 MYSQL_RES* res;
 
-SOCKET Connections[5];//изменить кол-во
+SOCKET Connections[10];//изменить кол-во
 int Counter = 0;
+
+# define PRINTNUSERS if (Counter) printf("%d user online\n",Counter);else printf("No user online\n");
+
+
 
 enum Request_Codes
 {
@@ -27,7 +31,6 @@ enum Request_Codes
     SELL_MENU = 44444,
     REGISTRATION = 55555,
     CHECK_ORDER_STATUS = 66666,
-    CHANGE_USER = 77777,
     USER_EXIT = 88888,
 
 };
@@ -808,16 +811,10 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
             {
                 sell_menu(index);
             }
-            else if(request_code==CHANGE_USER)
-            {
-                cout<<"=====got change client code====="<<endl;
-            }
             else if(request_code==USER_EXIT)
             {
                 cout<<"=====got user exit code====="<<endl;
-                //Connections[index]
 
-                //завершаем работу потока, но не сервера
                 break;
             }
             else
@@ -828,6 +825,14 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
         }
 
     }
+
+    --Counter;
+    printf("-disconnect\n"); PRINTNUSERS
+    closesocket(Connections[Counter+1]);
+
+
+    return;
+
 }
 
 
@@ -844,45 +849,81 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
-    SOCKADDR_IN addr;
-    int sizeofaddr = sizeof(addr);
-    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    addr.sin_port = htons(1111);
-    addr.sin_family = AF_INET;
-
     SOCKET sListen = socket(AF_INET, SOCK_STREAM, NULL);
 
-    bind(sListen, (SOCKADDR*)&addr, sizeof(addr));
-    listen(sListen, SOMAXCONN);
+    SOCKADDR_IN addr;
+    int sizeofaddr = sizeof(addr);
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(1111);
+    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    if(bind(sListen, (SOCKADDR*)&addr, sizeof(addr)))
+    {
+        cout<<"Error bind, "<<WSAGetLastError()<<endl;
+        closesocket(sListen);
+        WSACleanup();
+        return -1;
+    }
+
+
+    if(listen(sListen, SOMAXCONN))
+    {
+        cout<<"Error listen, "<<WSAGetLastError()<<endl;
+        closesocket(sListen);
+        WSACleanup();
+        return -1;
+    }
 
     SOCKET newConnection;
+    sockaddr_in client_addr;
+    int client_addr_size = sizeof(client_addr);
 
-    for (int i = 0; i < 5; ++i)//изменить кол-во подключений
+    while(newConnection = accept(sListen, (SOCKADDR*)&client_addr, &client_addr_size))
     {
-        newConnection = accept(sListen, (SOCKADDR*)&addr, &sizeofaddr);
+        ++Counter;
+        Connections[Counter] = newConnection;
 
-        if (newConnection == 0)
-        {
-            cout << "Error #2" << endl;
-        }
-        else
-        {
-            cout << "Client connected!" << endl;
+        HOSTENT *hst;
+        hst = gethostbyaddr((char*)&client_addr.sin_addr.s_addr,4,AF_INET);
 
-            Connections[i] = newConnection;
-            ++Counter;
+        printf("+%s new connection!\n", (hst)?hst->h_name:"",inet_ntoa(client_addr.sin_addr));
+        PRINTNUSERS
 
-            //создаю потоки используя std::thread
-
-            //временно; нет защиты разделяемых данных;
-            CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)ClientHandler, (LPVOID)(i), NULL, NULL);
-        }
+        DWORD thID;
+        CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)ClientHandler, (LPVOID)(Counter), NULL, &thID);
     }
+
+
+//Старая версия
+//    for (int i = 0; i < 5; ++i)//изменить кол-во подключений
+//    {
+//        newConnection = accept(sListen, (SOCKADDR*)&client_addr, &client_addr_size);
+//
+//        if (newConnection == 0)
+//        {
+//            cout << "Error #2" << endl;
+//        }
+//        else
+//        {
+//            cout << "Client connected!" << endl;
+//
+//            Connections[i] = newConnection;
+//            ++Counter;
+//
+//            //создаю потоки используя std::thread
+//
+//            //временно; нет защиты разделяемых данных ???;
+//            CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)ClientHandler, (LPVOID)(i), NULL, NULL);
+//        }
+//    }
 
     system("pause");
 
     mysql_free_result(res);
     mysql_close(connection);
+
+    //closesocket(Connections);
+//    WSACleanup();
 
     return 0;
 }
