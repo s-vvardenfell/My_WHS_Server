@@ -40,6 +40,7 @@ enum User_Roles
     NO_USER = 0
 };
 
+
 void connect_sql()
 {
     connection=mysql_init(0);
@@ -64,6 +65,706 @@ void error_message()
 
 }
 
+void show_item_detailed_info(int index)
+{
+    cout<<"Got show item detailed info"<<endl;
+
+    //getting item code
+    int msg_size;
+    recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+    char* item_code = new char[msg_size+1];
+    item_code[msg_size] = '\0';
+    recv(Connections[index], item_code, msg_size, NULL);
+
+    cout<<"Got item code "<<item_code<<endl;
+
+    stringstream ss;
+    ss<<"SELECT name FROM goods WHERE id="<<item_code;
+
+    string query=ss.str();
+    ss.str(string(""));
+    const char* q = query.c_str();
+
+    if(connection)
+    {
+        int qstate = mysql_query(connection, q);
+
+        if(!qstate)
+        res = mysql_store_result(connection);
+
+        int number_of_results = mysql_num_rows(res);
+        cout<<"number_of_results: "<<number_of_results<<endl;
+
+        if(number_of_results)
+        {
+
+            ss<<"SELECT orders_detailed.order_id, (SELECT name FROM goods WHERE id="<<item_code<<") AS 'name',"
+            "(SELECT name FROM categories WHERE id =(SELECT category_id FROM goods WHERE goods.id="<<item_code<<")) AS 'category',"
+            "(SELECT name FROM suppliers WHERE id =(SELECT supplier_id FROM goods WHERE goods.id="<<item_code<<")) AS 'supplier',"
+            "amount AS 'amount_in_order', total_cost AS 'sum_on_warehouse', customer_name, customer_address, order_total_cost"
+            " FROM orders_detailed INNER JOIN orders ON orders_detailed.order_id=orders.order_id WHERE orders_detailed.good_id="<<item_code<<";";
+
+            query=ss.str();
+            cout<<query<<endl;
+            ss.str(string(""));
+            q = query.c_str();
+
+            qstate = mysql_query(connection, q);
+
+            if(!qstate)
+                res = mysql_store_result(connection);
+
+            while(row = mysql_fetch_row(res))
+            {
+                cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]<<" "<<row[8]<<endl;
+                ss<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]<<" "<<row[8]<<endl;
+            }
+
+            query=ss.str();
+            msg_size=query.size();
+            send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+            send(Connections[index], query.c_str(), msg_size, NULL);
+        }
+        else
+        {
+            query="no such item id";
+            msg_size=query.size();
+            send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+            send(Connections[index], query.c_str(), msg_size, NULL);
+        }
+    }
+
+    delete[] item_code;
+}
+
+void check_order_status(int index)
+{
+        cout<<"Got check order status code"<<endl;
+
+//                int order_code_from_client;
+//                recv(Connections[index], reinterpret_cast<char*>(&order_code_from_client), sizeof(int), NULL);
+        int msg_size;
+        recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+        char* order_code_from_client = new char[msg_size+1]; ///ОТПРАВИТЬ-ПРИНЯТЬ БЕЗ SIZEOF
+        order_code_from_client[msg_size] = '\0';
+        recv(Connections[index], order_code_from_client, msg_size, NULL);
+
+        cout<<"Got order number from client: "<<order_code_from_client<<endl;
+
+        stringstream ss;
+        ss<<"SELECT * FROM orders_detailed INNER JOIN orders ON orders_detailed.order_id=orders.order_id WHERE orders_detailed.order_id="<<order_code_from_client;
+
+        string query=ss.str();
+        const char* q = query.c_str();
+        ss.str(string(""));
+
+        if(connection)
+        {
+            int qstate = mysql_query(connection, q);
+
+            if(!qstate)
+                res = mysql_store_result(connection);
+
+            int number_of_results = mysql_num_rows(res);
+            cout<<"number_of_results: "<<number_of_results<<endl;
+
+            if(number_of_results)
+            {
+                while(row = mysql_fetch_row(res))
+                {
+                    cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]/*<<" "<<row[8]<<" "<<row[9]<<" "<<row[10]*/<<endl;
+                    ss<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]<<" "<<row[8]<<" "<<row[9]<<" "<<row[10]<<endl;
+                }
+
+                query = ss.str();
+                msg_size = query.size();
+                send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+                send(Connections[index], query.c_str(), msg_size, NULL);
+            }
+            else
+            {
+                query = "no such order";
+                msg_size = query.size();
+                send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+                send(Connections[index], query.c_str(), msg_size, NULL);
+            }
+        }
+}
+
+void check_balance(int index)
+{
+        cout<<"Got show table request"<<endl;
+        int msg_size;
+        stringstream ss;
+        if(connection)
+        {
+            int qstate = mysql_query(connection, "SELECT id, name, amount, price FROM goods;");
+
+            if(!qstate)
+                res = mysql_store_result(connection);
+
+            while(row = mysql_fetch_row(res))
+            {
+                cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<endl;
+                ss<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<endl;
+            }
+
+            string query=ss.str();
+            msg_size=query.size();
+            cout<<query<<endl;
+            send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+            send(Connections[index], query.c_str(), msg_size, NULL);
+        }
+
+}
+
+void authorization(int index)
+{
+    //получаем и обрабатываем логин и пароль от клиента
+    int msg_size;
+    recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+    char* login_and_password_data = new char[msg_size+1];
+    login_and_password_data[msg_size] = '\0';
+    recv(Connections[index], login_and_password_data, msg_size, NULL);
+
+    cout<<"Login and password raw data from client: "<<login_and_password_data<<endl;
+    string login, password, login_and_password;
+    login_and_password=login_and_password_data;
+
+    login = login_and_password.substr(0, login_and_password.find('*'));
+    login_and_password.erase(0, login_and_password.find('*')+1);
+    password=login_and_password;
+    cout<<"login: "<<login<<" password: "<<password<<endl;
+
+    stringstream ss;
+    ss<<"SELECT password, role_id FROM user_list WHERE name="<<login;
+    string query = ss.str();
+    int qstate = mysql_query(connection, query.c_str());
+
+    if(!qstate)
+        res = mysql_store_result(connection);
+
+        //если запись с таким логином есть, сравниваем пароль из бд и от клиента
+    if(row = mysql_fetch_row(res))
+    {
+        cout<<"User found, password and role: ";
+        cout<<row[0]<<" "<<row[1]<<endl;
+        if(password==row[0])//если пароль верный, отпаравляем роль для активации меню
+        {
+            msg_size=strlen(row[1]);
+            send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+            send(Connections[index], row[1], msg_size, NULL);
+        }
+        else//если пароль неверный, отправляем 0
+        {
+            cout<<"password doesn't match"<<endl;
+            const char* login = "0";
+            msg_size=strlen(login);///ОПТИМИЗИРОВАТЬ, нет нужды отправлять размер; принять правильно в клиенте
+            send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+            send(Connections[index], login, msg_size, NULL);
+        }
+
+    }
+    else//если записи с таким логином нет, отправляем '0'/NO_USER
+    {
+        ///OLD VERSION WORKS
+        const char* role = "0"; //NO_USER
+        msg_size=strlen(role);///ОПТИМИЗИРОВАТЬ, нет нужды отправлять размер; принять правильно в клиенте
+        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+        send(Connections[index], role, msg_size, NULL);
+        cout<<"No such user"<<endl;
+
+//                    ///NEW VERSION TESTING
+//                    cout<<"qstate "<<qstate<<endl;
+//                    int role = NO_USER;
+//                    send(Connections[index], reinterpret_cast<char*>(&role), sizeof(int), NULL);
+//                    cout<<"No such user"<<endl;
+
+    }
+
+    delete[] login_and_password_data;
+}
+
+void registration(int index)
+{
+    cout<<"Registration menu"<<endl;
+
+    //getting login and password from client
+    int msg_size;
+    recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+    char* login_and_password_raw_data = new char[msg_size+1];
+    login_and_password_raw_data[msg_size] = '\0';
+    recv(Connections[index], login_and_password_raw_data, msg_size, NULL);
+
+    cout<<"login_and_password_raw_data: "<<login_and_password_raw_data<<endl;
+
+    string login, password,
+            login_and_password = login_and_password_raw_data;
+
+    delete[] login_and_password_raw_data;
+
+    login = login_and_password.substr(0, login_and_password.find('*'));
+    login_and_password.erase(0, login_and_password.find('*')+1);
+    password=login_and_password;
+
+    cout<<"login: "<<login<<" & password: "<<password<<endl;
+
+    stringstream ss;
+
+    ss<<"SELECT id FROM user_list WHERE name=\'"<<login<<"\';";
+    string query=ss.str();
+    const char* q = query.c_str();
+    ss.str(string(""));
+
+    if(connection)
+    {
+        int qstate = mysql_query(connection, q);
+        if(!qstate)
+            res = mysql_store_result(connection);
+            int number_of_results = mysql_num_rows(res);
+
+        if(!number_of_results)
+        {
+            cout<<"id's with this name(login) from user_list: "<<number_of_results<<" user doesn't exists!"<<endl;
+
+            ss<<"INSERT INTO user_list (name, password, role_id) VALUES (\'";
+            ss<<login<<"\',\'"<<password<<"\',"<<"2);"; //добавить сюда подзапрос из таблицы ролей
+            query = ss.str();
+            cout<<query<<endl;
+            q = query.c_str();
+
+            qstate = mysql_query(connection,q);
+
+            if(!qstate)
+            {
+                cout<<"New user created"<<endl;
+                cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
+
+                string registration_confirm = to_string(CUSTOMER); //set 2, can't create admin or manager with client application
+                msg_size=registration_confirm.size();
+                send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+                send(Connections[index], registration_confirm.c_str(), msg_size, NULL);
+            }
+            else
+            {
+                error_message();
+            }
+
+        }
+        else
+        {
+            cout<<"id's with this name(login) from user_list: "<<number_of_results<<" user already exists!"<<endl;
+
+            string registration_confirm = to_string(NO_USER); //set 2, can't create admin or manager with client application
+            msg_size=registration_confirm.size();
+            send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+            send(Connections[index], registration_confirm.c_str(), msg_size, NULL);
+            error_message();
+        }
+
+    }
+}
+
+void sell_menu(int index)
+{
+    cout<<"Sell menu"<<endl;
+    int order_is_done=0;
+    int msg_size;
+
+    while(1)
+    {
+        recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+        char* item_code = new char[msg_size+1];
+        item_code[msg_size] = '\0';
+        recv(Connections[index], item_code, msg_size, NULL);
+
+        cout<<"Got item code "<<item_code<<endl;
+
+        stringstream ss;
+        ss<<"SELECT name, amount, price FROM goods WHERE id="<<item_code;
+        string query=ss.str();
+        ss.str(string(""));
+        const char* q = query.c_str();
+
+        delete[] item_code;
+
+        if(connection)//else отработать
+        {
+            //отправляю данные о товаре по артикулу клиенту
+            int qstate = mysql_query(connection, q);
+
+            if(!qstate)
+                res = mysql_store_result(connection);
+                int number_of_results = mysql_num_rows(res);
+                cout<<"number_of_results: "<<number_of_results<<endl;
+
+            if(!number_of_results)//if there is no such item id - break/continue
+            {
+                query="0 results";
+                msg_size=query.size();
+                cout<<"!number_of_results: "<<number_of_results<<endl;
+                send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+                send(Connections[index], query.c_str(), msg_size, NULL);
+
+                break;
+            }
+
+            while(row = mysql_fetch_row(res))
+            {
+                cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<endl;
+                ss<<row[0]<<"*"<<row[1]<<"*"<<row[2]<<endl;
+            }
+
+                string str_query="";
+                str_query=ss.str();
+                cout<<"message to client: "<<str_query<<endl;
+                ss.str(string(""));
+                msg_size=str_query.size();
+                send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+                send(Connections[index], str_query.c_str(), msg_size, NULL);
+
+                recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+                char* order_continue = new char[msg_size+1];
+                order_continue[msg_size] = '\0';
+                recv(Connections[index], order_continue, msg_size, NULL);
+
+                cout<<"Got continue code: "<<order_continue<<endl;
+                order_is_done=atoi(order_continue);
+
+                delete[] order_continue;
+        }
+
+        if(order_is_done==0)
+        {
+            cout<<"Escape input sequence on server"<<endl;
+            break;
+        }
+
+    }
+
+        //получаем сформированный заказ в виде строки
+        recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+        char* complete_order = new char[msg_size+1];
+        complete_order[msg_size] = '\0';
+        recv(Connections[index], complete_order, msg_size, NULL);
+
+        cout<<"complete_order: "<<complete_order<<endl;
+
+        string temp_str = complete_order;
+
+        delete[] complete_order;
+
+        unsigned int cnt = (count(temp_str.begin(),temp_str.end(), '*'));
+        cout<<"Count of elements (*) in order: "<<cnt<<endl;
+
+        //сохраняем данные из строки в multimap: first=код/id, second=количество
+        multimap<int, double> order_elements;
+
+        for(unsigned int i=0; i<cnt; ++i)
+        {
+            order_elements.emplace(
+            atoi(((temp_str.substr(0, temp_str.find('_'))).substr(0,temp_str.find('*'))).c_str()),
+            atof(((temp_str.substr(0, temp_str.find('_'))).substr(temp_str.find('*')+1,temp_str.find('_'))).c_str())
+                                                );
+            temp_str.erase(0, temp_str.find('_')+1);
+        }
+
+        multimap<int, double>::iterator it;
+
+        for(it=order_elements.begin(); it!=order_elements.end();++it)
+        {
+            cout<<(*it).first<<" and "<<(*it).second<<endl;
+        }
+        it=order_elements.begin();//иначе занемем данные из недоступной области памяти;
+                                            //удалить если удалю вывод содержимого multimap выше;
+        string temp_order;
+
+        if(connection)
+        {
+            string id;//для работы с заказом по id
+
+            //создаю запись "temp_order date time" в поле name таблицы orders для работы с текущим
+            //заказом, избегая подсчета строк в таблице для создания нового заказа
+            stringstream ss;
+            ss<<"INSERT INTO orders (customer_name) VALUES (\'";
+
+            time_t now = time(0);
+            char* dt = ctime(&now);
+
+            temp_order="data_temp_ ";
+            temp_order+=dt; //прибавляем дату-время для уникальности
+            ss<<temp_order<<"\');";
+
+            string query = ss.str();
+            ss.str(string(""));
+
+            cout<<query<<endl;
+
+            const char* q = query.c_str();
+
+            int qstate = mysql_query(connection,q);
+
+            if(!qstate)
+            {
+                cout<<"Record inserted"<<endl;
+                cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
+            }
+            else
+            {
+                error_message();
+            }
+
+            //в цикле проходим по multimap и заносим в таблицу значения для данного временного id
+            for(it=order_elements.begin(); it!=order_elements.end();++it)
+            {
+                ss<<"INSERT INTO orders_detailed (order_id, good_id, amount, total_cost) "
+                "VALUES (";
+                ss<<"(SELECT order_id FROM orders WHERE customer_name=\'"<<temp_order<<"\'), ";
+                ss<<((*it).first)<<", "<<((*it).second)<<", (";
+                ss<<"(SELECT price FROM goods WHERE id="<<((*it).first)<<")*"<<((*it).second)<<")";
+                ss<<");";
+
+                query = ss.str();
+                ss.str(string(""));
+                cout<<query<<endl;
+
+                q = query.c_str();
+
+                qstate = mysql_query(connection,q);
+
+                if(!qstate)
+                {
+                    cout<<"Record inserted"<<endl;
+                    cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
+                }
+                else
+                {
+                    error_message();
+                }
+
+            }
+                            //считаем стоимость заказа по orders_detailed и заносим в orders
+
+            ss<<"SELECT SUM(total_cost) FROM orders_detailed GROUP BY order_id HAVING order_id=";
+            ss<<"(SELECT order_id FROM orders WHERE customer_name=\'"<<temp_order<<"\')";
+
+            query = ss.str();
+            ss.str(string(""));
+            q = query.c_str();
+
+            qstate = mysql_query(connection,q);
+
+            string total_cost_str;//строка содержащая значение - сумму по заказу
+            cout<<"Got total cost in orders_detailed : ";
+
+            if(!qstate)
+                res = mysql_store_result(connection);
+
+            while(row = mysql_fetch_row(res))
+            {
+                total_cost_str=row[0];
+                cout<<row[0]<<endl;
+            }
+
+                //вносим полную стоимость заказа в столбец total_cost в orders
+
+            ss<<"UPDATE orders SET order_total_cost=";
+            ss<<total_cost_str;
+            ss<<" WHERE customer_name=\'"<<temp_order<<"\';";
+            query = ss.str();
+            ss.str(string(""));
+            q = query.c_str();
+
+            qstate = mysql_query(connection,q);
+
+            if(!qstate)
+            {
+                cout<<"Records updated"<<endl;
+                cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
+            }
+            else
+            {
+                error_message();
+            }
+
+            //отправляем сумму заказа, у клиента спросим подтверждение
+            //и ввод личн данных
+            msg_size=total_cost_str.size();
+            send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+            send(Connections[index], total_cost_str.c_str(), msg_size, NULL);
+
+            //если пришел ответ от клиента что отменить заказ - удаляем temp из таблицы
+            //если оформляем заказ - принимаем имя и адрес
+            //получаем имя*адрес или @denied@ для удаления временной записи
+
+            recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+            char* confirm_or_denied = new char[msg_size + 1];
+            confirm_or_denied[msg_size] = '\0';
+            recv(Connections[index], confirm_or_denied, msg_size, NULL);
+            cout<<"Got name*address or @denied@ from client: "<<confirm_or_denied<<endl;
+
+            if(string(confirm_or_denied)=="@denied@")//удаляю записи из order и order_detailed для данного temp_order
+            {
+                ss<<"DELETE FROM orders WHERE customer_name=\'"<<temp_order<<"\';";
+                query = ss.str();
+                ss.str(string(""));
+                cout<<query<<endl;
+                q = query.c_str();
+                qstate = mysql_query(connection,q);
+
+                if(!qstate)
+                {
+                    cout<<"Records with temp_order "<<temp_order<< "removed"<<endl;
+                    cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
+                }
+                else
+                    error_message();
+
+                return;//в случае отмены завершаем работу здесь
+            }
+            else //заношу имя и адрес в стобцы в orders, делаю селект и отправляю клиенту для формирования чека
+            {
+                //сохраняю id заказа для последующего использования, когда по name будет не найти
+
+                ss<<"SELECT order_id FROM orders WHERE customer_name=\'"<<temp_order<<"\'";
+                query = ss.str();
+                ss.str(string(""));
+                q = query.c_str();
+                qstate = mysql_query(connection,q);
+
+                if(!qstate)
+                    res = mysql_store_result(connection);
+
+                while(row = mysql_fetch_row(res))
+                {
+                    id=row[0];
+                    cout<<"id текущего заказа: "<<row[0]<<endl;
+                }
+
+                //меняю temp_name и пустое поле адрес на данные клиента
+                string name_and_address = confirm_or_denied;//сохраняю имя*адрес в string для обработки
+                delete[] confirm_or_denied;
+
+                ss<<"UPDATE orders SET customer_name=\'"<<(name_and_address.substr(0, name_and_address.find('*')))<<"\'";
+                name_and_address.erase(0, name_and_address.find('*')+1);
+                ss<<", customer_address=\'"<<name_and_address<<"\'";
+                ss<<" WHERE order_id=(SELECT order_id FROM orders WHERE customer_name=\'"<<temp_order<<"\');";
+                query = ss.str();
+                ss.str(string(""));
+                cout<<query<<endl;
+                q = query.c_str();//вот тут можно использовать один и тот же q с самого начала как и query
+
+                qstate = mysql_query(connection,q);
+
+                if(!qstate)
+                {
+                    cout<<"Records updated"<<endl;
+                    cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
+                }
+                else
+                    error_message();
+
+            }
+
+            //отправляю строкой данные о сформированном заказе клиенту для печати
+            cout<<"Sending full order data from sever to client...."<<endl;
+
+            //формирую информацию для отправки
+
+            //из таблицы orders
+
+            ss<<"SELECT * FROM orders WHERE order_id=\'"<<id<<"\';";
+
+            string order_full_data_to_client;
+            query = ss.str();
+            ss.str(string(""));
+            q = query.c_str();
+
+            qstate = mysql_query(connection,q);
+
+            cout<<"Customer order data (orders): ";
+            if(!qstate)
+                res = mysql_store_result(connection);
+
+            while(row = mysql_fetch_row(res))
+            {
+                order_full_data_to_client.append(row[0]).append("_").append(row[1]).append("_").append(row[2]).append("_").append(row[3]).append("_");
+                cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<endl;
+            }
+
+            //из таблицы orders_detailed
+
+            order_full_data_to_client+='#';//добавляю разделитель для последующей обработки
+
+            ss<<"SELECT name, orders_detailed.amount, total_cost FROM orders_detailed INNER JOIN goods ON orders_detailed.good_id=goods.id WHERE order_id=\'"<<id<<"\';";
+
+            query = ss.str();
+            ss.str(string(""));
+            q = query.c_str();
+
+            qstate = mysql_query(connection,q);
+
+            cout<<"Customer full order (orders_detailed): ";
+            if(!qstate)
+                res = mysql_store_result(connection);
+
+            while(row = mysql_fetch_row(res))
+            {
+                cout<<row[0]<<"*"<<row[1]<<"="<<row[2]<<endl;
+                order_full_data_to_client.append(row[0]).append("*").append(row[1]).append("=").append(row[2]).append(",");
+
+            }
+
+            cout<<order_full_data_to_client<<endl;
+
+            msg_size=order_full_data_to_client.size();
+            send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+            send(Connections[index], order_full_data_to_client.c_str(), msg_size, NULL);
+
+            //списываю товар с остатков, т.к. заказ сформирован и отправлен
+
+            ss<<"SELECT good_id FROM orders_detailed WHERE order_id="<<id<<";";
+            query = ss.str();
+            ss.str(string(""));
+            q = query.c_str();
+
+            int counter=0;
+
+            qstate = mysql_query(connection,q);
+
+            if(!qstate)
+                res = mysql_store_result(connection);
+
+            while(row = mysql_fetch_row(res))
+            {
+                cout<<row[0]<<endl;
+
+                ss<<"UPDATE goods SET amount = (goods.amount-(SELECT orders_detailed.amount FROM orders_detailed WHERE order_id = "<<id<<" AND good_id = "<<row[0];
+                ss<<")) WHERE goods.id = "<<row[0]<<";";
+                query = ss.str();
+                ss.str(string(""));
+                cout<<query<<endl;
+
+                q = query.c_str();
+                qstate = mysql_query(connection,q);
+
+                if(!qstate)
+                {
+                    cout<<"goods.amount had been changed"<<endl;
+                    cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
+                }
+                else
+                {
+                    cout<<"goods.amount had NOT been changed"<<endl;
+                    error_message();
+                }
+
+
+            }
+
+        }
+}
+
 void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 {
     int msg_size, request_code;
@@ -85,714 +786,31 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
         {
             if(request_code==AUTHORIZATION)
             {
-                //получаем и обрабатываем логин и пароль от клиента
-                recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                char* login_and_password_data = new char[msg_size+1];
-                login_and_password_data[msg_size] = '\0';
-                recv(Connections[index], login_and_password_data, msg_size, NULL);
-
-                cout<<"Login and password raw data from client: "<<login_and_password_data<<endl;
-                string login, password, login_and_password;
-                login_and_password=login_and_password_data;
-
-                login = login_and_password.substr(0, login_and_password.find('*'));
-                login_and_password.erase(0, login_and_password.find('*')+1);
-                password=login_and_password;
-                cout<<"login: "<<login<<" password: "<<password<<endl;
-
-                stringstream ss;
-                ss<<"SELECT password, role_id FROM user_list WHERE name="<<login;
-                string query = ss.str();
-                int qstate = mysql_query(connection, query.c_str());
-
-                if(!qstate)
-                    res = mysql_store_result(connection);
-
-                //если запись с таким логином есть, сравниваем пароль из бд и от клиента
-                if(row = mysql_fetch_row(res))
-                {
-                    cout<<"User found, password and role: ";
-                    cout<<row[0]<<" "<<row[1]<<endl;
-                    if(password==row[0])//если пароль верный, отпаравляем роль для активации меню
-                    {
-                        msg_size=strlen(row[1]);
-                        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                        send(Connections[index], row[1], msg_size, NULL);
-                    }
-                    else//если пароль неверный, отправляем 0
-                    {
-                        cout<<"password doesn't match"<<endl;
-                        const char* login = "0";
-                        msg_size=strlen(login);///ОПТИМИЗИРОВАТЬ, нет нужды отправлять размер; принять правильно в клиенте
-                        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                        send(Connections[index], login, msg_size, NULL);
-                    }
-
-                }
-                else//если записи с таким логином нет, отправляем '0'/NO_USER
-                {
-                    ///OLD VERSION WORKS
-                    const char* role = "0"; //NO_USER
-                    msg_size=strlen(role);///ОПТИМИЗИРОВАТЬ, нет нужды отправлять размер; принять правильно в клиенте
-                    send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                    send(Connections[index], role, msg_size, NULL);
-                    cout<<"No such user"<<endl;
-
-//                    ///NEW VERSION TESTING
-//                    cout<<"qstate "<<qstate<<endl;
-//                    int role = NO_USER;
-//                    send(Connections[index], reinterpret_cast<char*>(&role), sizeof(int), NULL);
-//                    cout<<"No such user"<<endl;
-
-                }
-
-                delete[] login_and_password_data;
+                authorization(index);
             }
             else if(request_code==CHECK_BALANCE)
             {
-                cout<<"Got show table request"<<endl;
-                stringstream ss;
-                if(connection)
-                {
-                    int qstate = mysql_query(connection, "SELECT id, name, amount, price FROM goods;");
-
-                    if(!qstate)
-                        res = mysql_store_result(connection);
-
-                    while(row = mysql_fetch_row(res))
-                    {
-                        cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<endl;
-                        ss<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<endl;
-                    }
-
-                    string query=ss.str();
-                    msg_size=query.size();
-                    cout<<query<<endl;
-                    send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                    send(Connections[index], query.c_str(), msg_size, NULL);
-                }
-
+                check_balance(index);
             }
             else if(request_code==CHECK_ORDER_STATUS)
             {
-                cout<<"Got check order status code"<<endl;
-
-//                int order_code_from_client;
-//                recv(Connections[index], reinterpret_cast<char*>(&order_code_from_client), sizeof(int), NULL);
-
-                recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                char* order_code_from_client = new char[msg_size+1]; ///ОТПРАВИТЬ-ПРИНЯТЬ БЕЗ SIZEOF
-                order_code_from_client[msg_size] = '\0';
-                recv(Connections[index], order_code_from_client, msg_size, NULL);
-
-                cout<<"Got order number from client: "<<order_code_from_client<<endl;
-
-                stringstream ss;
-                ss<<"SELECT * FROM orders_detailed INNER JOIN orders ON orders_detailed.order_id=orders.order_id WHERE orders_detailed.order_id="<<order_code_from_client;
-
-                string query=ss.str();
-                const char* q = query.c_str();
-                ss.str(string(""));
-
-                if(connection)
-                {
-                    int qstate = mysql_query(connection, q);
-
-                    if(!qstate)
-                        res = mysql_store_result(connection);
-
-                    int number_of_results = mysql_num_rows(res);
-                    cout<<"number_of_results: "<<number_of_results<<endl;
-
-                    if(number_of_results)
-                    {
-                        while(row = mysql_fetch_row(res))
-                        {
-                            cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]/*<<" "<<row[8]<<" "<<row[9]<<" "<<row[10]*/<<endl;
-                            ss<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]<<" "<<row[8]<<" "<<row[9]<<" "<<row[10]<<endl;
-                        }
-
-                        query = ss.str();
-                        msg_size = query.size();
-                        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                        send(Connections[index], query.c_str(), msg_size, NULL);
-                    }
-                    else
-                    {
-                        query = "no such order";
-                        msg_size = query.size();
-                        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                        send(Connections[index], query.c_str(), msg_size, NULL);
-                    }
-                }
-
+                check_order_status(index);
             }
             else if(request_code==ITEM_DETAILED_INFO)
             {
-                cout<<"Got show item detailed info"<<endl;
-
-                //getting item code
-                recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                char* item_code = new char[msg_size+1];
-                item_code[msg_size] = '\0';
-                recv(Connections[index], item_code, msg_size, NULL);
-
-                cout<<"Got item code "<<item_code<<endl;
-
-                stringstream ss;
-                ss<<"SELECT name FROM goods WHERE id="<<item_code;
-
-                string query=ss.str();
-                ss.str(string(""));
-                const char* q = query.c_str();
-
-                if(connection)
-                {
-                    int qstate = mysql_query(connection, q);
-
-                    if(!qstate)
-                        res = mysql_store_result(connection);
-
-                    int number_of_results = mysql_num_rows(res);
-                    cout<<"number_of_results: "<<number_of_results<<endl;
-
-                    if(number_of_results)
-                    {
-//                        while(row = mysql_fetch_row(res))
-//                        {
-//                            cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<endl;
-//                            ss<<"SELECT id, name, (SELECT name FROM categories WHERE id="<<row[2]<<"), (SELECT name FROM suppliers WHERE id="<<row[3]<<"), amount, price FROM goods WHERE id="<<item_code<<endl;
-//                        }
-
-                        ss<<"SELECT orders_detailed.order_id, (SELECT name FROM goods WHERE id="<<item_code<<") AS 'name',"
-                        "(SELECT name FROM categories WHERE id =(SELECT category_id FROM goods WHERE goods.id="<<item_code<<")) AS 'category',"
-                        "(SELECT name FROM suppliers WHERE id =(SELECT supplier_id FROM goods WHERE goods.id="<<item_code<<")) AS 'supplier',"
-                        "amount AS 'amount_in_order', total_cost AS 'sum_on_warehouse', customer_name, customer_address, order_total_cost"
-                        " FROM orders_detailed INNER JOIN orders ON orders_detailed.order_id=orders.order_id WHERE orders_detailed.good_id="<<item_code<<";";
-
-                        query=ss.str();
-                        cout<<query<<endl;
-                        ss.str(string(""));
-                        q = query.c_str();
-
-                        qstate = mysql_query(connection, q);
-
-                        if(!qstate)
-                            res = mysql_store_result(connection);
-
-                        while(row = mysql_fetch_row(res))
-                        {
-                            cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]<<" "<<row[8]<<endl;
-                            ss<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<row[4]<<" "<<row[5]<<" "<<row[6]<<" "<<row[7]<<" "<<row[8]<<endl;
-                        }
-
-                        query=ss.str();
-                        msg_size=query.size();
-                        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                        send(Connections[index], query.c_str(), msg_size, NULL);
-                    }
-                    else
-                    {
-                        query="no such item id";
-                        msg_size=query.size();
-                        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                        send(Connections[index], query.c_str(), msg_size, NULL);
-                    }
-                }
-
-                delete[] item_code;
-
+                show_item_detailed_info(index);
             }
             else if(request_code==REGISTRATION)
             {
-                cout<<"Registration menu"<<endl;
-
-                //getting login and password from client
-                recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                char* login_and_password_raw_data = new char[msg_size+1];
-                login_and_password_raw_data[msg_size] = '\0';
-                recv(Connections[index], login_and_password_raw_data, msg_size, NULL);
-
-                cout<<"login_and_password_raw_data: "<<login_and_password_raw_data<<endl;
-
-                string login, password,
-                        login_and_password = login_and_password_raw_data;
-
-                delete[] login_and_password_raw_data;
-
-                login = login_and_password.substr(0, login_and_password.find('*'));
-                login_and_password.erase(0, login_and_password.find('*')+1);
-                password=login_and_password;
-
-                cout<<"login: "<<login<<" & password: "<<password<<endl;
-
-                stringstream ss;
-
-                ss<<"SELECT id FROM user_list WHERE name=\'"<<login<<"\';";
-                string query=ss.str();
-                const char* q = query.c_str();
-                ss.str(string(""));
-
-                if(connection)
-                {
-                    int qstate = mysql_query(connection, q);
-                    if(!qstate)
-                        res = mysql_store_result(connection);
-                        int number_of_results = mysql_num_rows(res);
-
-                    if(!number_of_results)
-                    {
-                        cout<<"id's with this name(login) from user_list: "<<number_of_results<<" user doesn't exists!"<<endl;
-
-                        ss<<"INSERT INTO user_list (name, password, role_id) VALUES (\'";
-                        ss<<login<<"\',\'"<<password<<"\',"<<"2);"; //добавить сюда подзапрос из таблицы ролей
-                        query = ss.str();
-                        cout<<query<<endl;
-                        q = query.c_str();
-
-                        qstate = mysql_query(connection,q);
-
-                        if(!qstate)
-                        {
-                            cout<<"New user created"<<endl;
-                            cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
-
-                            string registration_confirm = to_string(CUSTOMER); //set 2, can't create admin or manager with client application
-                            msg_size=registration_confirm.size();
-                            send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                            send(Connections[index], registration_confirm.c_str(), msg_size, NULL);
-                        }
-                        else
-                        {
-                                error_message();
-                        }
-
-                    }
-                    else
-                    {
-                        cout<<"id's with this name(login) from user_list: "<<number_of_results<<" user already exists!"<<endl;
-
-                        string registration_confirm = to_string(NO_USER); //set 2, can't create admin or manager with client application
-                        msg_size=registration_confirm.size();
-                        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                        send(Connections[index], registration_confirm.c_str(), msg_size, NULL);
-                        error_message();
-                    }
-
-                }
-
+                registration(index);
             }
             else if(request_code==SELL_MENU)
             {
-                cout<<"Sell menu"<<endl;
-                int order_is_done=0;
-
-                while(1)
-                {
-                    recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                    char* item_code = new char[msg_size+1];
-                    item_code[msg_size] = '\0';
-                    recv(Connections[index], item_code, msg_size, NULL);
-
-                    cout<<"Got item code "<<item_code<<endl;
-
-                    stringstream ss;
-                    ss<<"SELECT name, amount, price FROM goods WHERE id="<<item_code;
-                    string query=ss.str();
-                    ss.str(string(""));
-                    const char* q = query.c_str();
-
-                    delete[] item_code;
-
-                    if(connection)//else отработать
-                    {
-                        //отправляю данные о товаре по артикулу клиенту
-                        int qstate = mysql_query(connection, q);
-
-                        if(!qstate)
-                            res = mysql_store_result(connection);
-                            int number_of_results = mysql_num_rows(res);
-                            cout<<"number_of_results: "<<number_of_results<<endl;
-
-                        if(!number_of_results)//if there is no such item id - break/continue
-                        {
-                            query="0 results";
-                            msg_size=query.size();
-                            cout<<"!number_of_results: "<<number_of_results<<endl;
-                            send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                            send(Connections[index], query.c_str(), msg_size, NULL);
-
-                            break;
-                        }
-
-                        while(row = mysql_fetch_row(res))
-                        {
-                            cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<endl;
-                            ss<<row[0]<<"*"<<row[1]<<"*"<<row[2]<<endl;
-                        }
-
-                        string str_query="";
-                        str_query=ss.str();
-                        cout<<"message to client: "<<str_query<<endl;
-                        ss.str(string(""));
-                        msg_size=str_query.size();
-                        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                        send(Connections[index], str_query.c_str(), msg_size, NULL);
-
-                        recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                        char* order_continue = new char[msg_size+1];
-                        order_continue[msg_size] = '\0';
-                        recv(Connections[index], order_continue, msg_size, NULL);
-
-                        cout<<"Got continue code: "<<order_continue<<endl;
-                        order_is_done=atoi(order_continue);
-
-                        delete[] order_continue;
-                    }
-
-                    if(order_is_done==0)
-                    {
-                        cout<<"Escape input sequence on server"<<endl;
-                        break;
-                    }
-
-                }
-
-                    //получаем сформированный заказ в виде строки
-                    recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                    char* complete_order = new char[msg_size+1];
-                    complete_order[msg_size] = '\0';
-                    recv(Connections[index], complete_order, msg_size, NULL);
-
-                    cout<<"complete_order: "<<complete_order<<endl;
-
-                    string temp_str = complete_order;
-
-                    delete[] complete_order;
-
-                    unsigned int cnt = (count(temp_str.begin(),temp_str.end(), '*'));
-                    cout<<"Count of elements (*) in order: "<<cnt<<endl;
-
-                    //сохраняем данные из строки в multimap: first=код/id, second=количество
-                    multimap<int, double> order_elements;
-
-                    for(unsigned int i=0; i<cnt; ++i)
-                    {
-                        order_elements.emplace(
-                        atoi(((temp_str.substr(0, temp_str.find('_'))).substr(0,temp_str.find('*'))).c_str()),
-                        atof(((temp_str.substr(0, temp_str.find('_'))).substr(temp_str.find('*')+1,temp_str.find('_'))).c_str())
-                                                );
-                        temp_str.erase(0, temp_str.find('_')+1);
-                    }
-
-                    multimap<int, double>::iterator it;
-
-                    for(it=order_elements.begin(); it!=order_elements.end();++it)
-                    {
-                        cout<<(*it).first<<" and "<<(*it).second<<endl;
-                    }
-                    it=order_elements.begin();//иначе занемем данные из недоступной области памяти;
-                                            //удалить если удалю вывод содержимого multimap выше;
-
-                    string temp_order;
-
-                    if(connection)
-                    {
-
-                        string id;//для работы с заказом по id
-
-                        //создаю запись "temp_order date time" в поле name таблицы orders для работы с текущим
-                        //заказом, избегая подсчета строк в таблице для создания нового заказа
-                        stringstream ss;
-                        ss<<"INSERT INTO orders (customer_name) VALUES (\'";
-
-                        time_t now = time(0);
-                        char* dt = ctime(&now);
-
-                        temp_order="data_temp_ ";
-                        temp_order+=dt; //прибавляем дату-время для уникальности
-                        ss<<temp_order<<"\');";
-
-                        string query = ss.str();
-                        ss.str(string(""));
-
-                        cout<<query<<endl;
-
-                        const char* q = query.c_str();
-
-                        int qstate = mysql_query(connection,q);
-
-                            if(!qstate)
-                            {
-                                cout<<"Record inserted"<<endl;
-                                cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
-                            }
-                            else
-                            {
-                                error_message();
-                            }
-
-                        //в цикле проходим по multimap и заносим в таблицу значения для данного временного id
-                        for(it=order_elements.begin(); it!=order_elements.end();++it)
-                        {
-                            ss<<"INSERT INTO orders_detailed (order_id, good_id, amount, total_cost) "
-                            "VALUES (";
-                            ss<<"(SELECT order_id FROM orders WHERE customer_name=\'"<<temp_order<<"\'), ";
-                            ss<<((*it).first)<<", "<<((*it).second)<<", (";
-                            ss<<"(SELECT price FROM goods WHERE id="<<((*it).first)<<")*"<<((*it).second)<<")";
-                            ss<<");";
-
-                            query = ss.str();
-                            ss.str(string(""));
-                            cout<<query<<endl;
-
-//                            const char* q2 = query.c_str();
-                            q = query.c_str();
-
-                            qstate = mysql_query(connection,q);
-
-                                if(!qstate)
-                                {
-                                    cout<<"Record inserted"<<endl;
-                                    cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
-                                }
-                                else
-                                {
-                                    error_message();
-                                }
-
-                        }
-                            //считаем стоимость заказа по orders_detailed и заносим в orders
-
-                            ss<<"SELECT SUM(total_cost) FROM orders_detailed GROUP BY order_id HAVING order_id=";
-                            ss<<"(SELECT order_id FROM orders WHERE customer_name=\'"<<temp_order<<"\')";
-
-                            query = ss.str();
-                            ss.str(string(""));
-                            q = query.c_str();
-
-                            qstate = mysql_query(connection,q);
-
-                            string total_cost_str;//строка содержащая значение - сумму по заказу
-                            cout<<"Got total cost in orders_detailed : ";
-                            if(!qstate)
-                                res = mysql_store_result(connection);
-
-                                while(row = mysql_fetch_row(res))
-                                {
-                                    total_cost_str=row[0];
-                                    cout<<row[0]<<endl;
-                                }
-
-                            //вносим полную стоимость заказа в столбец total_cost в orders
-
-                            ss<<"UPDATE orders SET order_total_cost=";
-                            ss<<total_cost_str;
-                            ss<<" WHERE customer_name=\'"<<temp_order<<"\';";
-                            query = ss.str();
-                            ss.str(string(""));
-                            q = query.c_str();
-
-                            qstate = mysql_query(connection,q);
-
-                                if(!qstate)
-                                {
-                                    cout<<"Records updated"<<endl;
-                                    cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
-                                }
-                                else
-                                {
-                                    error_message();
-                                }
-
-                            //отправляем сумму заказа, у клиента спросим подтверждение
-                            //и ввод личн данных
-                            msg_size=total_cost_str.size();
-                            send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                            send(Connections[index], total_cost_str.c_str(), msg_size, NULL);
-
-                            //если пришел ответ от клиента что отменить заказ - удаляем temp из таблицы
-                            //если оформляем заказ - принимаем имя и адрес
-                            //получаем имя*адрес или @denied@ для удаления временной записи
-
-                            recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                            char* confirm_or_denied = new char[msg_size + 1];
-                            confirm_or_denied[msg_size] = '\0';
-                            recv(Connections[index], confirm_or_denied, msg_size, NULL);
-                            cout<<"Got name*address or @denied@ from client: "<<confirm_or_denied<<endl;
-
-                            if(string(confirm_or_denied)=="@denied@")//удаляю записи из order и order_detailed для данного temp_order
-                            {
-
-                                ss<<"DELETE FROM orders WHERE customer_name=\'"<<temp_order<<"\';";
-                                query = ss.str();
-                                ss.str(string(""));
-                                cout<<query<<endl;
-//                                const char* q4 = query.c_str();
-                                q = query.c_str();
-                                qstate = mysql_query(connection,q);
-
-                                if(!qstate)
-                                {
-                                    cout<<"Records with temp_order "<<temp_order<< "removed"<<endl;
-                                    cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
-                                }
-                                else
-                                    error_message();
-
-                                return;//в случае отмены завершаем работу здесь
-                            }
-                            else //заношу имя и адрес в стобцы в orders, делаю селект и отправляю клиенту для формирования чека
-                            {
-                                //сохраняю id заказа для последующего использования, когда по name будет не найти
-
-                                ss<<"SELECT order_id FROM orders WHERE customer_name=\'"<<temp_order<<"\'";
-                                query = ss.str();
-                                ss.str(string(""));
-                                q = query.c_str();
-                                qstate = mysql_query(connection,q);
-
-                                if(!qstate)
-                                res = mysql_store_result(connection);
-
-                                while(row = mysql_fetch_row(res))
-                                {
-                                    id=row[0];
-                                    cout<<"id текущего заказа: "<<row[0]<<endl;
-                                }
-
-                                //меняю temp_name и пустое поле адрес на данные клиента
-                                string name_and_address = confirm_or_denied;//сохраняю имя*адрес в string для обработки
-                                delete[] confirm_or_denied;
-
-                                ss<<"UPDATE orders SET customer_name=\'"<<(name_and_address.substr(0, name_and_address.find('*')))<<"\'";
-                                name_and_address.erase(0, name_and_address.find('*')+1);
-                                ss<<", customer_address=\'"<<name_and_address<<"\'";
-                                ss<<" WHERE order_id=(SELECT order_id FROM orders WHERE customer_name=\'"<<temp_order<<"\');";
-                                query = ss.str();
-                                ss.str(string(""));
-                                cout<<query<<endl;
-                                q = query.c_str();//вот тут можно использовать один и тот же q с самого начала как и query
-
-                                qstate = mysql_query(connection,q);
-
-                                    if(!qstate)
-                                    {
-                                        cout<<"Records updated"<<endl;
-                                        cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
-                                    }
-                                    else
-                                        error_message();
-                            }
-
-                            //отправляю строкой данные о сформированном заказе клиенту для печати
-                            cout<<"Sending full order data from sever to client...."<<endl;
-
-                            //формирую информацию для отправки
-
-                            //из таблицы orders
-
-                            ss<<"SELECT * FROM orders WHERE order_id=\'"<<id<<"\';";
-
-                            string order_full_data_to_client;
-                            query = ss.str();
-                            ss.str(string(""));
-                            q = query.c_str();
-
-                            qstate = mysql_query(connection,q);
-
-                            cout<<"Customer order data (orders): ";
-                            if(!qstate)
-                                res = mysql_store_result(connection);
-
-                                while(row = mysql_fetch_row(res))
-                                {
-                                    order_full_data_to_client.append(row[0]).append("_").append(row[1]).append("_").append(row[2]).append("_").append(row[3]).append("_");
-                                    cout<<row[0]<<" "<<row[1]<<" "<<row[2]<<" "<<row[3]<<" "<<endl;
-                                }
-
-                            //из таблицы orders_detailed
-
-                            order_full_data_to_client+='#';//добавляю разделитель для последующей обработки
-
-                            ss<<"SELECT name, orders_detailed.amount, total_cost FROM orders_detailed INNER JOIN goods ON orders_detailed.good_id=goods.id WHERE order_id=\'"<<id<<"\';";
-
-                            query = ss.str();
-                            ss.str(string(""));
-                            q = query.c_str();
-
-                            qstate = mysql_query(connection,q);
-
-                            cout<<"Customer full order (orders_detailed): ";
-                            if(!qstate)
-                                res = mysql_store_result(connection);
-
-                                while(row = mysql_fetch_row(res))
-                                {
-                                    cout<<row[0]<<"*"<<row[1]<<"="<<row[2]<<endl;
-                                    order_full_data_to_client.append(row[0]).append("*").append(row[1]).append("=").append(row[2]).append(",");
-
-                                }
-
-                            cout<<order_full_data_to_client<<endl;
-
-                            msg_size=order_full_data_to_client.size();
-                            send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-                            send(Connections[index], order_full_data_to_client.c_str(), msg_size, NULL);
-
-                            //списываю товар с остатков, т.к. заказ сформирован и отправлен
-
-                            ss<<"SELECT good_id FROM orders_detailed WHERE order_id="<<id<<";";
-                            query = ss.str();
-                            ss.str(string(""));
-                            q = query.c_str();
-
-                            map<int, string> good_idS_for_update;
-                            int counter=0;
-
-                            qstate = mysql_query(connection,q);
-
-                            if(!qstate)
-                                res = mysql_store_result(connection);
-
-                                while(row = mysql_fetch_row(res))
-                                {
-                                    cout<<row[0]<<endl;
-
-                                    ss<<"UPDATE goods SET amount = (goods.amount-(SELECT orders_detailed.amount FROM orders_detailed WHERE order_id = "<<id<<" AND good_id = "<<row[0];
-                                    ss<<")) WHERE goods.id = "<<row[0]<<";";
-                                    query = ss.str();
-                                    ss.str(string(""));
-                                    cout<<query<<endl;
-
-                                    q = query.c_str();
-                                    qstate = mysql_query(connection,q);
-
-                                    if(!qstate)
-                                    {
-                                        cout<<"goods.amount had been changed"<<endl;
-                                        cout<<"Affected rows: "<<mysql_affected_rows(connection)<<endl;
-                                    }
-                                    else
-                                    {
-                                        cout<<"goods.amount had NOT been changed"<<endl;
-                                        error_message();
-
-                                    }
-
-
-                                }
-
-
-
-
-                    }
+                sell_menu(index);
             }
             else if(request_code==CHANGE_USER)
             {
                 cout<<"=====got change client code====="<<endl;
-
-
             }
             else if(request_code==USER_EXIT)
             {
@@ -808,7 +826,6 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
             }
 
         }
-
 
     }
 }
