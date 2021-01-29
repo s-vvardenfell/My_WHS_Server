@@ -883,6 +883,7 @@ int main(int argc, char* argv[])
         ++Counter;
         Connections[Counter] = newConnection;
 
+
         HOSTENT *hst;
         hst = gethostbyaddr((char*)&client_addr.sin_addr.s_addr,4,AF_INET);
 
