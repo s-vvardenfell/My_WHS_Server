@@ -11,6 +11,7 @@
 using namespace std;
 
 #define ip_address "192.168.0.102"
+#define NO_ITEM "000"
 
 MYSQL* connection;
 MYSQL_ROW row;
@@ -32,6 +33,7 @@ enum Request_Codes
     REGISTRATION = 55555,
     CHECK_ORDER_STATUS = 66666,
     USER_EXIT = 88888,
+    ADD_ITEMS_TO_DB = 99999
 
 };
 
@@ -391,7 +393,7 @@ void sell_menu(int index)
 
         delete[] item_code;
 
-        if(connection)//else отработать
+        if(connection)
         {
             //отправляю данные о товаре по артикулу клиенту
             int qstate = mysql_query(connection, q);
@@ -403,14 +405,15 @@ void sell_menu(int index)
 
             if(!number_of_results)//if there is no such item id - break/continue
             {
-                query="0 results";
+                query = NO_ITEM;
                 msg_size=query.size();
                 cout<<"!number_of_results: "<<number_of_results<<endl;
                 send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
                 send(Connections[index], query.c_str(), msg_size, NULL);
 
-                break;
+                continue;
             }
+
 
             while(row = mysql_fetch_row(res))
             {
@@ -768,6 +771,17 @@ void sell_menu(int index)
         }
 }
 
+void add_items_to_db_from_file()
+{
+    cout<<"Adding items from txt/xml menu"<<endl;
+
+//    int msg_size;
+//    recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+//    char* login_and_password_raw_data = new char[msg_size+1];
+//    login_and_password_raw_data[msg_size] = '\0';
+//    recv(Connections[index], login_and_password_raw_data, msg_size, NULL);
+}
+
 void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
 {
     int msg_size, request_code;
@@ -810,6 +824,10 @@ void ClientHandler(int index)//ф-я, принимающ-я индекс соед-я в сокет-массиве
             else if(request_code==SELL_MENU)
             {
                 sell_menu(index);
+            }
+            else if(request_code==ADD_ITEMS_TO_DB)
+            {
+                add_items_to_db_from_file();
             }
             else if(request_code==USER_EXIT)
             {
@@ -882,7 +900,6 @@ int main(int argc, char* argv[])
     {
         ++Counter;
         Connections[Counter] = newConnection;
-
 
         HOSTENT *hst;
         hst = gethostbyaddr((char*)&client_addr.sin_addr.s_addr,4,AF_INET);
