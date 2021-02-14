@@ -771,22 +771,124 @@ void sell_menu(int index)
         }
 }
 
-void add_items_to_db_from_file()
+void add_items_to_db_from_file(int index)
 {
     cout<<"Adding items from txt/xml menu"<<endl;
 
-//    int msg_size;
-//    recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
-//    char* login_and_password_raw_data = new char[msg_size+1];
-//    login_and_password_raw_data[msg_size] = '\0';
-//    recv(Connections[index], login_and_password_raw_data, msg_size, NULL);
+    //getting items for recording
+    int msg_size;
+    recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+    char* items_to_db = new char[msg_size+1];
+    items_to_db[msg_size] = '\0';
+    recv(Connections[index], items_to_db, msg_size, NULL);
+
+    cout<<"Got message "<<items_to_db<<endl;
+
+    stringstream ss;
+    ss<<items_to_db;
+    string buffer;
+
+    vector<string> items_from_client;
+
+
+    while(getline(ss, buffer))
+    {
+        items_from_client.push_back(buffer);
+//        cout<<"buffer: "<<buffer<<endl;
+    }
+
+    for(auto &a : items_from_client)
+        cout<<"items_from_client"<<a<<endl;
+
+    ss.str(string(""));
+
+    stringstream ss2;
+
+    ss2<<"INSERT INTO goods (name, category_id, supplier_id, amount, price) VALUES ";
+
+    //WORK CORRECT BUT LOOKS STUPID
+    for(unsigned int i=0; i<items_from_client.size(); ++i)
+    {
+        ss2<<"(";
+
+        ss2<<"\'"<<items_from_client[i].substr(0,items_from_client[i].find(","))<<"\'"<<",";
+        items_from_client[i].erase(0, items_from_client[i].find(",")+1);
+
+        ss2<<"\'"<<items_from_client[i].substr(0,items_from_client[i].find(","))<<"\'"<<",";
+        items_from_client[i].erase(0, items_from_client[i].find(",")+1);
+
+        ss2<<"\'"<<items_from_client[i].substr(0,items_from_client[i].find(","))<<"\'"<<",";
+        items_from_client[i].erase(0, items_from_client[i].find(",")+1);
+
+        ss2<<"\'"<<items_from_client[i].substr(0,items_from_client[i].find(","))<<"\'"<<",";
+        items_from_client[i].erase(0, items_from_client[i].find(",")+1);
+
+        ss2<<"\'"<<items_from_client[i].substr(0,items_from_client[i].find(","))<<"\'";
+        items_from_client[i].erase(0, items_from_client[i].find(",")+1);
+
+        ss2<<(i<items_from_client.size()-1?"),":")");
+    }
+
+//NOT WORK CORRECT
+//    for(unsigned int i=0; i<items_from_client.size(); ++i)
+//    {
+//        ss2<<"(";
+//
+//        while(items_from_client[i].size()>6)
+//        {
+//
+//            ss2<<"\'"<<items_from_client[i].substr(0,items_from_client[i].find(","))<<"\'"<<",";
+//                items_from_client[i].erase(0, items_from_client[i].find(",")+1);
+//
+//
+//            ss2<<"\'"<<items_from_client[i].substr(0,items_from_client[i].find(","))<<"\'"<<",";
+//            if(items_from_client[i].find(","))
+//                items_from_client[i].erase(0, items_from_client[i].find(",")+1);
+//            else items_from_client[i].erase(0, items_from_client[i].size());
+//
+//        }
+//        ss2<<(i<items_from_client.size()-7?"),":")");
+//    }
+
+    ss2<<";";
+
+    string query=ss2.str();
+    cout<<query<<endl;
+
+    const char* q = query.c_str();
+
+    int qstate = mysql_query(connection,q);
+    int affected_rows;
+
+    string number_of_new_records;
+
+    if(!qstate)
+    {
+
+        affected_rows=mysql_affected_rows(connection);
+        cout<<"Record inserted"<<endl;
+        cout<<"Affected rows: "<<affected_rows<<endl;
+
+        number_of_new_records = to_string(affected_rows);
+        msg_size = number_of_new_records.size();
+        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+        send(Connections[index], number_of_new_records.c_str(), msg_size, NULL);
+    }
+    else
+    {
+        error_message();
+        number_of_new_records = "0";
+        msg_size=number_of_new_records.size();
+        send(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
+        send(Connections[index], number_of_new_records.c_str(), msg_size, NULL);
+    }
 }
 
 void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
 {
     int msg_size, request_code;
-    //ƒќЅј¬»“№ ”—Ћќ¬»≈ -  Ћ»≈Ќ“ ќ“—ќ≈ƒ»Ќ»Ћ—я = ¬џ’ќƒ »« ÷» Ћј
-    while (true)//бесконечн цикл, в кот будут приним и отпр сообщ-€ клиентов
+
+    while (true)//бесконечн цикл, в кот приним и отпр сообщ-€ клиентов
     {
 
     recv(Connections[index], reinterpret_cast<char*>(&msg_size), sizeof(int), NULL);
@@ -827,7 +929,7 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
             }
             else if(request_code==ADD_ITEMS_TO_DB)
             {
-                add_items_to_db_from_file();
+                add_items_to_db_from_file(index);
             }
             else if(request_code==USER_EXIT)
             {
@@ -856,6 +958,10 @@ void ClientHandler(int index)//ф-€, принимающ-€ индекс соед-€ в сокет-массиве
 
 int main(int argc, char* argv[])
 {
+    setlocale (LC_ALL, "Russian");
+    SetConsoleCP(1251);
+    SetConsoleOutputCP(1251);
+
     connect_sql();
 
     WSADATA wsaData;
